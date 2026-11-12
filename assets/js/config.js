@@ -1,29 +1,48 @@
 /* Site configuration. This file is public: never put passwords or secret keys in it.
  *
- * HOW REPORTS ARE DELIVERED. Fill in ONE of the three options below.
- *
- *   1. Nothing filled in       -> DEMO MODE. Reports stay in the visitor's browser and go nowhere.
- *
- *   2. EMAIL_WEB3FORMS_KEY or  -> EMAIL MODE. Each report is emailed to your inbox by a form
- *      EMAIL_FORMSPREE_ID         delivery service. Quickest to set up. No tracking codes.
- *                                 (These two values are designed to be public. They only allow
- *                                 sending to your inbox, not reading it.)
- *
- *   3. API_BASE                -> BACKEND MODE. Reports are stored in your Supabase project, with
- *                                 tracking codes, two-way messages and an email alert to reviewers.
- *                                 Example: "https://YOUR_PROJECT.supabase.co/functions/v1"
- *
- * If more than one is filled in, API_BASE wins, then Web3Forms, then Formspree.
- * Setup steps for each option are in SETUP.md.
+ * INTAKE IS CLOSED unless every one of these is true:
+ *   1. INTAKE_ENABLED is true
+ *   2. SUPABASE_URL is filled in
+ *   3. every POLICY value below is filled in
+ *   4. the core campus contacts in resources-data.js are marked verified
+ * If any is missing, the site shows a clear "not accepting submissions yet" state and offers a
+ * preview of the questions that sends and saves nothing. See SETUP.md for the full checklist.
  */
 window.PR_CONFIG = {
-  EMAIL_WEB3FORMS_KEY: "dbf759c9-bfb9-42bb-89b0-b403f4bed8f2",
-  EMAIL_FORMSPREE_ID: "mrpqbllg",
-  API_BASE: "https://apkyznnkokhwalbasbdt.supabase.co/functions/v1",
+  // The kill switch. Set to false at any time to stop accepting submissions immediately.
+  INTAKE_ENABLED: false,
+
+  // Your Supabase project. Both values are designed to be public.
+  SUPABASE_URL: "https://apkyznnkokhwalbasbdt.supabase.co",
+  // The project's "anon" (publishable) key, from Supabase: Project Settings, API. Needed only for
+  // reviewer sign-in on the dashboard. This is NOT the service-role key, which must never appear here.
+  SUPABASE_ANON_KEY: "",
+
+  // Shown to students before they submit. Leave a value empty until it has really been decided:
+  // an empty value keeps intake closed rather than showing a made-up policy.
+  POLICY: {
+    // When reviewers read submissions, e.g. "Monday to Friday during the semester".
+    REVIEW_HOURS: "",
+    // How long a first response usually takes, e.g. "within three days when classes are in session".
+    RESPONSE_TIME: "",
+    // How long submissions are kept before deletion, e.g. "12 months".
+    RETENTION: "",
+    // When reviewers must tell someone else, e.g. a threat to someone's safety. Agree this with
+    // appropriate University staff first.
+    CONFIDENTIALITY_LIMITS: "",
+    // A monitored address for questions about the project (not for reports).
+    CONTACT_EMAIL: ""
+  },
+
+  // Only promise what someone has agreed to staff. false makes Pride Guide say plainly that the
+  // service may not be available yet.
+  SERVICES: {
+    PEER_SUPPORT: false,
+    ADVOCACY: false,
+    ACCOMPANIMENT: false
+  },
 
   SITE_NAME: "UNewHaven Pride Report",
   // Where the "Quick exit" button sends the browser.
-  QUICK_EXIT_URL: "https://en.wikipedia.org/",
-  // Shown to students so nobody expects a live response. Set this to what reviewers can really sustain.
-  REVIEW_EXPECTATION: "Reports are read by trained student reviewers, not monitored live. A first look can take several days."
+  QUICK_EXIT_URL: "https://en.wikipedia.org/"
 };

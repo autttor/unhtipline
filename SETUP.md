@@ -1,167 +1,223 @@
-# Setting up report delivery
+# Setup and deployment
 
-Right now the site is in demo mode: reports stay in the visitor's browser and go nowhere. This page explains how to make reports reach you, and exactly what to hand over if you want it wired up for you.
+This is the owner's checklist: what to do, in order, to take Pride Report from "closed" to accepting real submissions. Nothing here needs a programmer, but some steps use a terminal.
 
-There are two options. **Use Option A now.** Option B is built and tested, but reviewers have no page to reply from yet (see "Known gap" below), so it should wait until that page exists. Moving from A to B later changes nothing for students except that tracking codes appear.
+## Read this first: what this update changes
 
-| | Option A: email only | Option B: full backend |
-| --- | --- | --- |
-| What happens to a report | Emailed to your inbox | Stored in a private database, and emailed to your inbox |
-| Setup time | About 5 minutes | About 45 minutes |
-| Accounts needed | One form service | Supabase and Resend |
-| Tracking codes and two-way messages | No | Yes |
-| Anonymous students can get a reply | No | Yes |
-| Cost to start | Free tier | Free tiers |
+- **Intake is closed until you finish this checklist.** The site now refuses to accept submissions unless the backend is deployed, the policies are written down, and the core campus contacts are verified. Until then, visitors see "not accepting submissions yet" and can only preview the questions. Nothing they type in the preview is sent or saved.
+- **The site and the backend must be updated together.** The new site sends a new kind of report. If you publish the site without redeploying the functions (Part A), submissions fail safely with an error. They are never lost silently and never shown as successful.
+- **Emails no longer contain what the student wrote.** Reviewers get "New Pride Report PR-1043" with the request type and a link to the dashboard. The report is read in the dashboard, behind each reviewer's own sign-in.
+- **The Web3Forms and Formspree path is removed.** Reports no longer go from the browser to an email service. Those two keys were in this repository's history. They only allow sending to your inbox, but you can delete both forms in those services to retire them.
+- **Tracking codes are retired for new submissions.** Students now get a reference number as a receipt. Anyone who was given an access code earlier can still use it on the "earlier access codes" page.
 
-## First: a dedicated inbox
+## Part A: deploy the backend
 
-Do this for either option.
+You need the Supabase CLI and to be signed in. All commands run from this repository's folder.
 
-1. Create a new email account used only for Pride Report. Do not use anyone's personal or school account.
-2. Turn on two-step verification.
-3. Share access only with the trained reviewers.
+```bash
+npx supabase login
+```
 
-Reports contain sensitive information about students. Whoever can open this inbox can read all of it.
+```bash
+npx supabase link --project-ref apkyznnkokhwalbasbdt
+```
 
-## Option A: email only
+### A1. Update the database
 
-Pick one of the two services. Both are built for static sites like this one.
+```bash
+npx supabase db push
+```
 
-### A1. Web3Forms
+This applies `supabase/migrations/0002_dashboard_outbox.sql` on top of the first migration and keeps every existing report.
 
-1. Go to web3forms.com and enter the dedicated inbox address.
-2. They email an **access key** to that inbox.
-3. Open `assets/js/config.js` and paste it in:
-   ```js
-   EMAIL_WEB3FORMS_KEY: "paste-the-access-key-here",
-   ```
+If the first migration was pasted into the SQL editor by hand instead of pushed with the CLI, `db push` will try to run it again and stop with an "already exists" error. In that case, open the Supabase dashboard, go to the SQL editor, paste the whole of `0002_dashboard_outbox.sql`, and run it once.
 
-### A2. Formspree
+### A2. Set the secrets
 
-1. Create an account at formspree.io using the dedicated inbox address.
-2. Create a new form. Its endpoint looks like `https://formspree.io/f/abcdwxyz`.
-3. Copy only the last part (`abcdwxyz`) into `assets/js/config.js`:
-   ```js
-   EMAIL_FORMSPREE_ID: "abcdwxyz",
-   ```
-
-### What to give me
-
-Just the Web3Forms access key or the Formspree form ID. Both are designed to be public (they are visible in any website that uses them) and only allow sending to your inbox, so they are safe to paste in chat. I will put it in `config.js` and push.
-
-### Then test it
-
-1. Open the site, go through Pride Guide, and submit a made-up report.
-2. Check the inbox, including the spam folder. The subject is `New Pride Report submission PR-XXXX-XXXX`.
-3. If you gave an email address as your contact, pressing Reply in the inbox should address the student.
-
-I could not reach either service from the build environment, so this first test is the real confirmation that delivery works. If nothing arrives, tell me what the site showed and I will fix it.
-
-### What students see in email mode
-
-- A reference number instead of a tracking code.
-- Two ways to submit: anonymous (no reply possible) or identified.
-- The "My report" page explains that tracking is not switched on, and the menu link is hidden.
-- The About page says plainly that reports are delivered by email through a form service.
-
-Check the free plan limits of whichever service you choose. If the monthly limit is reached, submissions fail and the student is told nothing was sent.
-
-## Option B: full backend
-
-This stores reports in Supabase, gives every student a private tracking code, allows two-way messages, and emails reviewers through Resend.
-
-### B1. Supabase
-
-1. Create a project at supabase.com. Note the project URL, which looks like `https://abcdefgh.supabase.co`.
-2. Install the Supabase CLI and sign in:
-   ```bash
-   npx supabase login
-   ```
-3. From this repository, link the project (the ref is the `abcdefgh` part of the URL):
-   ```bash
-   npx supabase link --project-ref abcdefgh
-   ```
-4. Create the database tables and rules:
-   ```bash
-   npx supabase db push
-   ```
-
-### B2. Resend (the email part)
-
-1. Create an account at resend.com using the dedicated inbox address.
-2. Create an API key.
-3. Until you verify a domain, Resend only delivers to the address you signed up with. That is fine if it is the dedicated inbox. To send to several reviewers, verify a domain in Resend first.
-
-### B3. Secrets
-
-Generate a long random value for hashing access codes. Keep it somewhere safe: if it is lost or changed, every existing tracking code stops working.
+If you already set `CODE_PEPPER`, `ALLOWED_ORIGIN`, `RESEND_API_KEY` and `EMAIL_TO` for the earlier version, keep them exactly as they are. Add the two new ones:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Then set the secrets. Replace each value with your own.
-
 ```bash
-npx supabase secrets set CODE_PEPPER=the-random-value ALLOWED_ORIGIN=https://autttor.github.io RESEND_API_KEY=re_your_key EMAIL_TO=your-inbox@example.com
+npx supabase secrets set DISPATCH_SECRET=paste-the-random-value DASHBOARD_URL=https://autttor.github.io/unhtipline/admin/
 ```
 
-Optional settings:
+The full list is in `.env.example`. Check what is set with:
 
-| Secret | What it does | Default |
+```bash
+npx supabase secrets list
+```
+
+| Secret | Needed | What it is |
 | --- | --- | --- |
-| `EMAIL_FROM` | Sender shown on the email, for example `Pride Report <reports@yourdomain.org>`. Needs a domain verified in Resend. | Resend's test sender |
-| `EMAIL_INCLUDE_DETAILS` | `true` puts the full report in the email. `false` sends only the reference number, and reviewers read the report in the database. | `true` |
-| `NOTIFY_WEBHOOK_URL` | Also post a "new report" ping (reference number only) to a chat webhook. | off |
+| `CODE_PEPPER` | Yes | At least 32 random characters. Keep the existing value. |
+| `ALLOWED_ORIGIN` | Yes | `https://autttor.github.io` with no path and no trailing slash. |
+| `EMAIL_TO` | Yes | Reviewer mailbox or mailboxes, comma separated. One notification per mailbox per submission. |
+| `RESEND_API_KEY` | Yes | Your Resend key. |
+| `DISPATCH_SECRET` | Yes | A second random value, used only by the retry job in A4. |
+| `DASHBOARD_URL` | Yes | The link placed in notification emails and in invitations. |
+| `EMAIL_FROM` | Optional | A sender on a domain verified in Resend. Without it, Resend's test sender is used, which only delivers to the address the Resend account was created with. |
+| `EMAIL_PROVIDER` | Optional | `resend` (default when a key is set) or `sandbox`, which sends nothing. |
+| `EMAIL_INCLUDE_DETAILS` | Leave off | See "The full-report email option" below. |
 
-`ALLOWED_ORIGIN` is the address of the site with no path and no trailing slash. For GitHub Pages on this repository that is `https://autttor.github.io`.
+Never put any of these in `assets/js/config.js` or anywhere else in this repository.
 
-### B4. Deploy the two functions
+### A3. Deploy the functions
 
 ```bash
 npx supabase functions deploy submit-report --no-verify-jwt
 ```
 
 ```bash
+npx supabase functions deploy send-notifications --no-verify-jwt
+```
+
+```bash
+npx supabase functions deploy admin-users --no-verify-jwt
+```
+
+```bash
 npx supabase functions deploy track-report --no-verify-jwt
 ```
 
-### B5. Point the site at it
+`--no-verify-jwt` is correct for all four. Students are not signed in, and the two staff functions check the caller's sign-in themselves, including the second sign-in step.
 
-In `assets/js/config.js`:
+### A4. Schedule email retries
 
-```js
-API_BASE: "https://abcdefgh.supabase.co/functions/v1",
+A notification is attempted the moment a report is stored. If that attempt fails, this job retries it. In the Supabase dashboard, enable the `pg_cron` and `pg_net` extensions (Database, Extensions), then run this once in the SQL editor, replacing the secret:
+
+```sql
+select cron.schedule('pride-report-send-notifications', '*/5 * * * *', $$
+  select net.http_post(
+    url := 'https://apkyznnkokhwalbasbdt.supabase.co/functions/v1/send-notifications',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-dispatch-secret', 'PASTE-DISPATCH_SECRET-HERE'),
+    body := '{}'::jsonb
+  );
+$$);
 ```
 
-### What to give me
+Also schedule the retention purge:
 
-Only the project URL (`https://abcdefgh.supabase.co`). It is public by design. I will set `API_BASE` and push.
+```sql
+select cron.schedule('pride-report-purge', '17 8 * * *', 'select public.purge_expired_reports()');
+```
 
-Do not paste the service role key, the Resend API key or `CODE_PEPPER` into chat or into any file in this repository. They go into `supabase secrets set` on your own computer and nowhere else.
+Admins can also press "Send due emails now" on the dashboard's Email delivery tab at any time.
 
-### Then test it
+### A5. Sign-in settings
 
-1. Submit a made-up report. You should get a code like `PR-7K9M-2Q4X-H3TN`.
-2. Check the inbox for `New Pride Report PR-1043`.
-3. Open "My report", enter the code, and send a message. The inbox should get `New message on Pride Report PR-1043` with the message in it.
+In the Supabase dashboard, under Authentication:
 
-These steps were written without access to a live Supabase or Resend account. The code is tested against a local database and a stand-in mail service, so if a command above does not match what the CLI shows, tell me the error and I will adjust.
+1. **Turn off public sign-ups** (Sign In / Providers, "Allow new users to sign up"). Reviewer accounts are created only by invitation.
+2. **URL configuration:** set the Site URL to `https://autttor.github.io/unhtipline/admin/` and add the same address to the redirect allow list. Invitation and password-reset links land there.
+3. **Password rules:** set the minimum length to 12 and turn on leaked-password protection if your plan offers it.
+4. **Multi-factor:** make sure TOTP (authenticator app) is enabled. The dashboard will not show any report to someone who has not completed it.
 
-### Known gap in Option B
+### A6. Create the first admin
 
-There is no reviewer sign-in page yet. Reviewers read reports and student messages from the email (with `EMAIL_INCLUDE_DETAILS=true`), but cannot change a report's status or reply to a student through the site. That means a student who chooses "Private follow-up" would wait for a reply that cannot be sent. Do not switch to Option B until the reviewer page is built. The database side of it exists and is tested; the page is the next thing to build.
+1. Authentication, Users, "Add user". Enter the first admin's email and a temporary password.
+2. In the SQL editor, run this with their details:
+
+```sql
+insert into private.staff (user_id, email, display_name, role)
+select id, email, 'Their Name', 'admin' from auth.users where email = 'them@example.org';
+```
+
+Have two admins. An admin cannot remove their own access, and one admin cannot handle a case they have a conflict of interest in.
+
+### A7. Connect the dashboard
+
+In the Supabase dashboard, Project Settings, API: copy the **anon** key (it may be labelled "publishable"). Put it in `assets/js/config.js`:
+
+```js
+SUPABASE_ANON_KEY: "paste-the-anon-key-here",
+```
+
+This key is designed to be public. It is not the service-role key, which must never appear in this repository.
+
+Then open `https://autttor.github.io/unhtipline/admin/`, sign in, change the temporary password with "Forgot password", and set up the authenticator app when prompted. Invite everyone else from the Team tab. Each person chooses their own password and sets up their own authenticator.
+
+## Part B: decisions only you can make
+
+Intake stays closed until every item here is done. The site checks them itself.
+
+### B1. Write the policies into `assets/js/config.js`
+
+| Setting | What to decide | Who should be involved |
+| --- | --- | --- |
+| `REVIEW_HOURS` | When reviewers actually read submissions | The reviewer team |
+| `RESPONSE_TIME` | A first-response time you can keep during exams and breaks | The reviewer team |
+| `RETENTION` | How long submissions are kept. The database default is 365 days: if you choose something else, change `delete_after` in the first migration to match. | An adviser |
+| `CONFIDENTIALITY_LIMITS` | When a reviewer must tell someone else, for example a threat to someone's safety, and how that interacts with Title IX and campus safety obligations. Student reviewers may have reporting duties of their own. | Appropriate University staff |
+| `CONTACT_EMAIL` | A monitored address for questions about the project, not for reports | You |
+
+Write each as a phrase that completes the sentence on the Privacy page. For example `REVIEW_HOURS: "on weekdays during the semester"` and `CONFIDENTIALITY_LIMITS: "If you tell us someone is in immediate danger, a reviewer may contact University Public Safety."`.
+
+### B2. Verify the campus contacts
+
+Open `assets/js/resources-data.js`. For each record, open its `source` link, confirm every phone number, email and link, then set `verified: true` and `checked: "YYYY-MM-DD"`. The University contacts came from the project proposal and were not re-checked, because newhaven.edu could not be reached while this was built.
+
+- **Core records** (Public Safety, Report It!, Title IX, the Myatt Center, The Trevor Project) must be verified before intake can open.
+- **Placeholder records** (Residential Life, Dean of Students, Counseling, New Haven Pride Center, the Connecticut Commission on Human Rights and Opportunities, 211 Connecticut) have no contact details yet and are hidden from students. Add details from each official page to publish them. Do not add hours or confidentiality claims the official page does not state.
+
+The Public Safety number also appears in fixed text on every page and in Pride Guide's script. If it is wrong, search the repository for `932-7070`.
+
+### B3. Say what is staffed
+
+In `config.js`, `SERVICES` controls what Pride Guide promises. Leave a service `false` until someone trained has agreed to provide it. While `false`, Pride Guide tells the student plainly that it may not be available and shows established support instead.
+
+### B4. Train reviewers
+
+Every reviewer reads `docs/REVIEWER_CHECKLIST.md` before they are invited.
+
+## Part C: open intake
+
+1. Run the tests in Part D.
+2. Set `INTAKE_ENABLED: true` in `assets/js/config.js` and publish.
+3. Submit one made-up report yourself. Confirm the reference number, the email, and that it appears in the dashboard. Delete it from the dashboard afterwards.
+
+**To stop accepting submissions at any time,** set `INTAKE_ENABLED: false` and publish. The site closes immediately and says so.
+
+## Part D: check a deployment
+
+Use made-up content only.
+
+| Check | Expected |
+| --- | --- |
+| Open the site in a private window | First screen says student-run, not affiliated, not 24/7, not an emergency service, then asks "Are you safe right now?" |
+| Choose Yes | Next question is "How can we help?" with "I need to report something" first and filled |
+| Submit a made-up advocacy request | A reference number appears only after a short wait; the dashboard shows one new case marked "Advocacy requested" |
+| Check the reviewer mailbox | One email per mailbox, with the reference number and request type, and none of what you typed |
+| Press Submit twice quickly, or resubmit after going offline | Still one case and one email |
+| Open `/admin/` signed out | Sign-in form only. No case data anywhere in the page source |
+| Sign in as a reviewer without finishing the authenticator step | No cases are shown |
+| As a reviewer, try to open an unassigned advocacy case | Refused |
+| Remove a reviewer's access on the Team tab while they are signed in | Their next click signs them out |
+| Set `RESEND_API_KEY` to a wrong value and submit | The student still gets a receipt; the case shows "Email failed"; Retry works once the key is fixed |
 
 ## Publishing the site
 
-1. In the repository on GitHub: **Settings, Pages**.
-2. **Source:** Deploy from a branch. Choose the branch and the `/ (root)` folder.
-3. The site appears at `https://autttor.github.io/unhtipline/`.
+In the repository on GitHub: Settings, Pages, deploy from a branch, choose the branch and the `/ (root)` folder. The site is served at `https://autttor.github.io/unhtipline/`. All links are relative, so it works under that path.
 
-## Text-message front door
+## The full-report email option
 
-A text number (for example TextFree) can auto-reply with a link to the site. It is a way to find the site, not a reporting channel. Suggested auto-reply:
+`EMAIL_INCLUDE_DETAILS=true` makes notification emails contain the student's whole report, including any contact details. It is off by default and should stay off. Turning it on means reports live in ordinary mailboxes, outside the dashboard's sign-in, access restrictions, audit log and retention deletion, and can be forwarded or backed up without anyone knowing. If you decide you need it, record who approved it and why, and tell students on the Privacy page.
 
-> UNewHaven Pride Report: get help at [URL]. Not monitored. Emergency: Public Safety (203) 932-7070 or 911.
+## What is not built or not switched on
 
-Without the link that is 100 characters, which leaves 60 for the link inside a 160-character limit.
+- **Replies from inside the dashboard.** Reviewers contact a student from the team mailbox and log the attempt on the case. Nothing is sent from the dashboard.
+- **A reply channel for students who give no email address.** They are told before submitting that reviewers cannot reply.
+- **Evidence attachments, other languages, and a student-facing "withdraw my report" button.**
+- **Published statistics.**
+
+## What to give me
+
+- The **anon key** and I will put it in `config.js`. It is public by design.
+- The **policy wording** from B1 and I will add it and update the Privacy page if needed.
+- **Verified contact details** from B2 and I will update the records.
+
+Do not paste the service-role key, the Resend key, `CODE_PEPPER` or `DISPATCH_SECRET` into chat or into any file here.
+
+These steps were written without access to your Supabase or Resend accounts. The code is tested against a local database, a stand-in sign-in service and a sandbox mail provider. If a command or a dashboard screen does not match what is written here, tell me what you see and I will adjust.

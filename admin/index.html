@@ -3,35 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex, nofollow">
-  <title>Reviewer dashboard (demo) | UNewHaven Pride Report</title>
+  <title>Reviewer dashboard | UNewHaven Pride Report</title>
   <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/styles.css">
 </head>
 <body data-page="admin" data-root="../">
 <main id="main">
   <div class="wrap page-head">
-    <p class="eyebrow">Pride Report administration</p>
+    <p class="eyebrow">Pride Report</p>
     <h1>Reviewer dashboard</h1>
   </div>
   <div class="wrap">
-    <div class="callout callout-warn" id="mode-note">
-      <p><strong>Demonstration with invented data.</strong> Every report marked “Fictional” was made up for this demo. The real dashboard must sit behind reviewer sign-in with two-factor authentication; that sign-in is not built yet, so this page never shows real reports.</p>
-    </div>
     <noscript><div class="callout callout-warn"><p>The dashboard needs JavaScript.</p></div></noscript>
-    <div id="app" class="section"></div>
+    <!-- Nothing about any report is in this page or its scripts. Everything is fetched after sign-in,
+         and the database decides what each signed-in person may see. -->
+    <div id="app" class="section" aria-live="polite"></div>
   </div>
 </main>
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/store.js"></script>
-<script src="../assets/js/common.js"></script>
 <script src="../assets/js/resources-data.js"></script>
+<script src="../assets/js/common.js"></script>
 <script src="../assets/js/engine.js"></script>
 <script src="../assets/js/flow.js"></script>
+<script src="../assets/vendor/supabase.js"></script>
 <script src="../assets/js/admin.js"></script>
 </body>
 </html>

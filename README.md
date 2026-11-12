@@ -1,59 +1,83 @@
 # UNewHaven Pride Report
 
-A student-led tipline for LGBTQ+ students at the University of New Haven. Students tell us what happened and what they need, and student reviewers can advocate for them, help them with a University office, support them, or help resolve a conflict.
+An independent, student-run intake for LGBTQ+ students at the University of New Haven: report something, get help with a University office, find peer support, ask for an advocate, or find resources.
 
-**Status: prototype in demo mode.** To make reports reach you, follow [SETUP.md](SETUP.md).
+Pride Report is not affiliated with, operated by, or endorsed by the University of New Haven. It is not an emergency service and not an official University reporting channel.
 
-Pride Report is an independent student initiative. It is not affiliated with or endorsed by the University of New Haven, and it does not replace the University's Report It! system, Title IX reporting, or the Myatt Center.
+**Status: intake is closed.** The code is in place, but the site will not accept submissions until the owner finishes [SETUP.md](SETUP.md). Until then visitors can preview the questions, and nothing they type is sent or saved.
 
-## What is here
+## How it fits together
 
-| Part | Where | State |
-| --- | --- | --- |
-| Website: Home, Get help, Resources, My report, About & privacy | `*.html`, `assets/` | Working on phone and desktop |
-| Pride Guide, the scripted assistant | `assets/js/engine.js`, `assets/js/flow.js` | Working, tested |
-| Email delivery (Web3Forms or Formspree) | `assets/js/store.js` | Built and tested against a stand-in; needs your key and one real test |
-| Full backend: database, tracking codes, messages, email alerts | `supabase/` | Built and tested locally; never deployed |
-| Reviewer dashboard | `admin/` | Demo only, on invented data, no sign-in |
-
-The site is plain HTML, CSS and JavaScript. There is no build step, no framework, no cookies, and no third-party script, font or analytics.
-
-## Try it
-
-```bash
-python3 -m http.server 8080
+```
+Pride Guide (GitHub Pages)
+   |  POST submit-report { report, meta, idem, privacy_ack }
+   v
+Supabase Edge Function: validate, rate-limit, store
+   v
+Private Postgres record  +  outbox row per reviewer mailbox      <- the student's receipt depends only on this commit
+   v
+Email worker (same function, then a retry job): Resend
+   v
+Reviewer mailbox: "New Pride Report PR-1043", request type, link. No narrative.
+   v
+Reviewer dashboard (/admin/): own account, password, authenticator code
 ```
 
-Then open <http://localhost:8080>. In demo mode, reports are kept in that browser only. "Clear demo data" in the yellow banner removes them. Submit a report, open **My report** with the code, then open **Reviewer dashboard (demo)** in the footer and reply to it.
+| Part | Where |
+| --- | --- |
+| Public site: Home, Get help, Resources, About, Privacy, Contact | `*.html`, `assets/` |
+| Pride Guide, the scripted assistant | `assets/js/engine.js`, `assets/js/flow.js` |
+| Reviewer dashboard | `admin/`, `assets/js/admin.js` |
+| Database: schema, access rules, outbox, retention | `supabase/migrations/` |
+| Server functions | `supabase/functions/` |
+| Owner setup and deployment | `SETUP.md`, `.env.example` |
+| Reviewer rules and launch checklist | `docs/REVIEWER_CHECKLIST.md` |
 
-## How Pride Guide works
+The site is plain HTML, CSS and JavaScript with no build step, no cookies, and no third-party scripts, fonts or analytics. The only outside service the browser talks to is the project's own Supabase.
 
-Pride Guide is a fixed script, not an AI model. `engine.js` is a small state machine and `flow.js` holds every question, option and branch. It cannot invent advice or assess a report.
+## Pride Guide: the fixed order
 
-The conversation has five parts:
+Pride Guide is a fixed script, not an AI model. `flow.js` holds every question and branch. The order below is enforced by tests for every branch and must not be changed.
 
-1. **What you need.** After a safety check, the first question is "What can we do for you?": advocate for me, help me with a University office, support me, help me resolve a conflict, explain my official reporting options, or just document it. Each kind of help has one short follow-up, for example which office, or whether a reviewer may raise it with or without the student's name.
-2. **What happened.** Category, the student's own words, when, where, who (by role, never by name), how often.
-3. **What you'd like to see.** A good outcome in the student's words, and any deadline coming up.
-4. **How to reach you.** Anonymous, private follow-up on the site, or identified. Identified students can ask reviewers to be discreet.
-5. **Review and submit.** Every answer can be changed. Nothing is sent before this point.
+1. **Intro and safety.** Student-run, not affiliated, not monitored 24/7, not an emergency service, not an official University report, and no guarantee of anonymity. Then "Are you safe right now?" No or Not sure shows Public Safety, 911 and 988, says plainly that the assistant cannot send help, offers an exit, and lets the student continue only after acknowledging that.
+2. **"How can we help?"** The first substantive question. Six choices, with "I need to report something" first and filled.
+3. **Questions for that choice only.**
+   - Report something: what happened, optional categories (several allowed), where, when, once or ongoing, what they want to happen.
+   - Help with a University office: which office, what they are trying to get done, whether they have contacted it, any deadline, what assistance would help.
+   - Peer support: what they would like, optional context. Never a required disclosure.
+   - An advocate: the concern, the outcome hoped for, any deadline, what advocacy would look like, and what the team can and cannot do.
+   - Information or resources: topic, resource cards shown at once, and an optional question for reviewers. No submission needed.
+   - Something else: free text and optional suggested next steps.
+4. **Contact, privacy, permission.** "Would you like someone from our student team to contact you about this?" (email only), then the privacy notice, then, where relevant, a separate permission question about contacting anyone else. That permission defaults to no. Choosing "an advocate" or "help with an office" is never treated as consent.
+5. **Review, Submit, receipt.** Every answer can be changed. One Submit. A receipt is shown only after the server confirms the report was stored.
 
-Other behaviour worth knowing:
+Other behaviour:
 
-- Every detail question can be skipped, and five accept the student's own words instead of a listed option.
-- Emergency contacts always list University Public Safety first, then 911.
-- If a typed answer mentions self-harm, crisis lines are shown immediately.
-- The in-progress conversation is kept in `sessionStorage`, so a refresh does not lose it and closing the tab does.
+- Every detail question can be skipped. Back and Start over are always available.
+- Mentions of self-harm or a threat, or choosing the safety category, show urgent contacts immediately.
+- Services nobody has agreed to staff are described as possibly unavailable (`SERVICES` in `config.js`).
+- The draft is kept in `sessionStorage`: a refresh keeps it, closing the tab discards it.
 
-To change wording or add a question, edit `flow.js`. If you add or rename an option, make the same change in `supabase/functions/_shared/validate.ts`. `npm test` fails if the two disagree. The tone rules are at the top of `flow.js`.
+To change wording or options, edit `flow.js` and make the same change in `supabase/functions/_shared/validate.ts`. `npm test` fails if they disagree.
 
-Campus contact details live in `assets/js/resources-data.js`. The Public Safety number also appears in the page footer, the callouts on each page, and Pride Guide's script.
+## Submission and email
 
-## Phone and desktop
+- **One path.** The browser posts to the `submit-report` function. There is no demo store and no browser-to-email service.
+- **Fails closed.** `store.js` refuses to submit unless `INTAKE_ENABLED` is true, the Supabase URL is set, every policy is filled in, and the core campus contacts are verified.
+- **Idempotent.** The browser makes one random key per report. Sending it again returns the same report and queues no second email.
+- **Outbox.** Each notification is a row with status `queued`, `sending`, `sent` or `failed`, an attempt count, timestamps, the provider's message id and an error category. Failures are retried with backoff up to six times, then shown to admins with a Retry button. A stored report stays reviewable whatever happens to its email.
+- **Metadata-only email.** Reference number, request type, advocacy and safety flags, and a dashboard link. A full-report option exists, is off by default, and is documented in SETUP.md.
+- **One mail provider.** Resend, with a sandbox provider for local runs and tests. No fallback chain.
+- **Rate limits and bot filters.** Five submissions per hour per network address (stored only as a keyed hash that changes daily), a hidden field, and a minimum completion time.
 
-- **Phone:** full-width answer buttons, a sticky answer bar that respects the home-indicator area, a collapsible "Need help right now?" panel, and a compact menu.
-- **Desktop:** the conversation sits beside a column showing progress through the five parts, urgent contacts, and reminders.
-- Light and dark themes follow the device setting. Print styles give a clean copy of a report.
+## Reviewer dashboard
+
+- **Individual accounts.** Supabase Auth with email and password, plus a required authenticator-app code. Accounts are created by invitation only. There is no shared password and nothing is gated in the browser.
+- **Roles.** `admin`, `reviewer`, `advocate`, stored in a private table that only the database owner and admins (through checked functions) can change.
+- **Enforced in the database.** Tables live in a schema the API does not expose, with row-level security on and no policies. Every read or change goes through a `staff_*` function that checks the caller is active staff with a second factor, applies the access policy, and writes the audit log. Removing someone's access takes effect on their next request.
+- **Access policy.** Everyone sees the queue's metadata. Content can be read by admins, the assignee, or anyone while a case is unassigned, except that unassigned advocacy cases are open only to advocates and admins. Only the assignee or an admin can change a case. A person restricted from a case (conflict of interest) cannot see it at all and cannot lift their own restriction.
+- **What it shows.** Real cases only: New, In review, Awaiting follow-up, Closed; filters for incident reports, office help, peer support and advocacy; safety and advocacy flags; the student's unedited answers; contact preference and permission flags; assignment; internal notes; contact attempts; team due date; email delivery state with admin retry; and a per-case and global activity log.
+- **What it does not do.** It sends nothing to students or anyone else, and it makes no judgment about credibility.
 
 ## Tests
 
@@ -61,50 +85,22 @@ Campus contact details live in `assets/js/resources-data.js`. The Public Safety 
 npm test
 ```
 
-Runs the Node tests (Node 22.18 or newer, no dependencies): the conversation script, server-side validation, email delivery, and checks that browser and server agree. They also check that there are no em dashes and that Public Safety is always listed before 911.
+Node 22.18 or newer, no dependencies. Covers the conversation order for every branch, skip, back, edit, the danger branch, multiple categories and opt-out; server validation; idempotent submission; the email outbox, retries and failures; the protected endpoints; and repository-wide checks (no secrets or third-party requests in public files, no em dashes, Public Safety listed before 911, no telephony).
 
 ```bash
 npm run test:db
 ```
 
-Applies the migration to a throwaway local PostgreSQL cluster and runs the access-control checks. Needs PostgreSQL 15+ binaries and a non-root user.
+Applies both migrations to a throwaway local PostgreSQL cluster, including data in the first version's shape to test the upgrade, then runs the access-control checks as each role: public, signed-in outsider, reviewer without a second factor, reviewer, advocate, admin, restricted and removed staff. Needs PostgreSQL 15+ binaries and a non-root user.
 
-## Backend design (Option B in SETUP.md)
-
-```
-Browser (GitHub Pages)
-   |  POST /functions/v1/submit-report   { report, meta }      ->  { id, code }
-   |  POST /functions/v1/track-report    { action, code, ... } ->  the student's view
-   v
-Edge Functions: validate, generate the access code, hash it, rate-limit, email reviewers
-   v
-Postgres functions (service role only)
-   v
-Tables in the `private` schema, which the Supabase API does not expose
+```bash
+npm run test:e2e
 ```
 
-- **Access codes** look like `PR-7K9M-2Q4X-H3TN` (about 59 bits). The code is generated on the server, returned once, never emailed, and stored only as an HMAC with a server-side secret.
-- **Reference numbers** like `PR-1043` are separate, safe to put in an email subject, and grant no access.
-- **Email** goes to reviewers through Resend. By default it contains the full report. The subject never contains details.
-- **Rate limits:** 5 submissions and 30 tracking lookups per hour per network address. The address is stored only as a keyed hash that changes daily, and is purged after two days.
-- **Reviewers** never read tables. The `reviewer_*` database functions require an account listed in `private.reviewers` and a two-factor sign-in, and write an audit entry on every open or change.
-- **Statistics** hide any group smaller than five.
-- **Retention:** reports carry a `delete_after` date (365 days by default) and `purge_expired_reports()` removes them.
+Starts a local database, the real server functions, a stand-in for Supabase sign-in, and a sandbox mail provider, then drives the site and the dashboard in a real browser. Needs PostgreSQL and Playwright. No real submissions or emails are involved in any test, and every fixture is fictional.
 
-## Before accepting real reports
+## Known limits
 
-The code is the smaller part of this. None of the following is done:
-
-- **Verify every campus contact.** The phone numbers, email and links came from the project proposal and have not been checked against newhaven.edu.
-- **Escalation protocol.** Decide, with appropriate University staff, when a reviewer must tell someone else, and how that interacts with Title IX and campus safety obligations. Student reviewers may have reporting duties of their own. Publish the result on the About page.
-- **What "advocate" and "conflict resolution" mean in practice.** The site now offers both. Agree who does them, what training they have, and what they will not do.
-- **Reviewer selection, training and response time.** Then set `REVIEW_EXPECTATION` in `config.js` to something reviewers can sustain.
-- **Retention period and privacy policy.** The About page marks these "to be decided". In email mode, also decide how long reports stay in the inbox.
-- **Reviewer dashboard for live data** (Option B only). See the known gap in SETUP.md.
-- **Hosting review.** Check the terms and plan limits of GitHub, the form service or Supabase, and Resend against the sensitivity of this data.
-- **Independent security review and accessibility testing** with real assistive technology.
-- **Name and affiliation.** Confirm the University is comfortable with "UNewHaven" in the name of an independent project.
-
-## Not built yet
-
-Reviewer sign-in and live dashboard, evidence attachments, save-and-continue across devices, other languages, and a student-facing "withdraw my report" button.
+- Sign-in, invitations and the authenticator step are tested against a stand-in for Supabase Auth, not the real service. The first real sign-in is the confirmation.
+- University contact details are unverified (see SETUP.md, B2).
+- Not built: replies from inside the dashboard, a reply channel for students who give no email, attachments, other languages, and student-side withdrawal of a report.

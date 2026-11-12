@@ -1,16 +1,22 @@
 /* Pride Guide script: every question, option and branch.
  *
- * Tone rules for anyone editing this file:
- *  - Help comes first. The first real question is "What can we do for you?".
- *  - Neutral, calm, direct. No exaggerated sympathy, no guessing at anyone's identity.
- *  - Never judge whether something "counts" as discrimination, and never promise an outcome.
- *  - Never claim to be a person, a counselor, or a University official.
- *  - Every incident-detail question must be skippable.
+ * THE ORDER IS FIXED. Do not reorder these steps (tests/engine.test.js enforces it for every branch):
+ *   1. Intro and general information, ending with "Are you safe right now?"
+ *   2. "How can we help?"  (the first substantive question; "I need to report something" comes first)
+ *   3. Questions specific to the help that was chosen (branches A to F below)
+ *   4. Contact, privacy notice, and separate permission to contact anyone else
+ *   5. Review, then one explicit Submit
+ *
+ * Rules for anyone editing this file:
+ *  - Deterministic script only. Never claim to be a person, a counselor, or a University official.
+ *  - Never promise a service nobody has agreed to staff (see SERVICES in config.js).
+ *  - Ask only what is needed to act on the help requested. Every detail question can be skipped.
  *  - Do not ask for the student's sexual orientation or gender identity.
+ *  - Choosing "help with an office" or "an advocate" is NOT permission to contact anyone.
  *  - Emergency contacts: University Public Safety first, then 911.
  *  - No em dashes in anything a student reads.
  *
- * Option values here must stay in sync with supabase/functions/_shared/validate.ts
+ * Option values must stay in sync with supabase/functions/_shared/validate.ts
  * (tests/consistency.test.js checks this).
  */
 (function (root, factory) {
@@ -20,146 +26,228 @@
   "use strict";
 
   // Set by the page before the conversation starts.
-  //   mode:     "demo" | "email" | "backend"
-  //   tracking: true when students can come back with an access code (demo and backend modes)
-  var context = { mode: "demo", tracking: true, expectation: "" };
+  var context = {
+    preview: true,                                   // true: nothing is sent or saved
+    policy: {},                                      // POLICY from config.js
+    services: { PEER_SUPPORT: false, ADVOCACY: false, ACCOMPANIMENT: false }
+  };
 
+  var TBC = "[to be confirmed before this service opens]";
+  function policy(key) { return String(context.policy[key] || "").trim() || TBC; }
+
+  var PREFER_NOT = { value: "prefer_not", label: "Prefer not to say", aliases: ["prefer not to say", "rather not say", "prefer not"] };
   var UNSURE = { value: "unsure", label: "I’m not sure", aliases: ["not sure", "unsure", "idk", "i don't know", "dont know"] };
+  var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // The four kinds of direct help, in the order students see them.
-  var HELP_NEEDS = ["advocate", "office", "support", "conflict"];
+  function value(ans) { return ans && !ans.skipped ? ans.value : null; }
+  function picked(ans, v) { return !!(ans && ans.values && ans.values.indexOf(v) !== -1); }
+  function help(a) { return value(a.help); }
 
-  function has(a, need) { return !!(a.needs && a.needs.values && a.needs.values.indexOf(need) !== -1); }
-  function wantsHelp(a) { return HELP_NEEDS.some(function (n) { return has(a, n); }); }
-  function isIncident(a) { return !!(a.path && a.path.value === "incident"); }
-
-  // After "What can we do for you?", ask one short follow-up for each kind of help that was chosen.
-  var DETAIL_ORDER = [["advocate", "advocate_consent"], ["office", "office_which"], ["support", "support_kind"], ["conflict", "conflict_with"]];
-  function nextDetail(a, after) {
-    var start = 0;
-    for (var i = 0; i < DETAIL_ORDER.length; i++) if (DETAIL_ORDER[i][0] === after) start = i + 1;
-    for (var j = start; j < DETAIL_ORDER.length; j++) if (has(a, DETAIL_ORDER[j][0])) return DETAIL_ORDER[j][1];
-    return "path";
+  /** True when the student asked for something that could involve contacting someone else. */
+  function needsConsent(a) {
+    var h = help(a);
+    return h === "office" || h === "advocate" ||
+      picked(a.wants, "advocacy") || picked(a.wants, "office") ||
+      picked(a.next_steps, "advocacy") || picked(a.next_steps, "office");
+  }
+  /** Help that can't happen unless a reviewer is able to reach the student. */
+  function needsReply(a) {
+    var h = help(a);
+    return h === "office" || h === "peer" || h === "advocate";
   }
 
+  // Answers that belong to one branch. Cleared when the student changes what kind of help they want.
+  var BRANCH_ANSWERS = ["narrative", "categories", "where", "when", "frequency", "ongoing", "wants", "office", "contacted",
+    "contact_summary", "assist", "deadline", "peer_kind", "outcome", "advocacy_kind", "topic", "follow_up", "next_steps",
+    "external_contact", "external_contact_scope"];
+
+  var BRANCH_START = { report: "a_what", office: "b_office", peer: "c_kind", advocate: "d_concern", info: "e_topic", other: "f_what" };
+
+  var deadlineOptions = [
+    { value: "none", label: "No deadline", aliases: ["no", "none", "no deadline"] },
+    { value: "days", label: "Within a few days", aliases: ["days", "this week", "soon"] },
+    { value: "weeks", label: "Within a few weeks", aliases: ["weeks", "this month"] },
+    UNSURE
+  ];
+
   var nodes = {
-    welcome: {
-      type: "choice", step: 0,
+
+    /* ---------- 1. Intro, general information and the safety question ---------- */
+
+    intro: {
+      type: "choice", step: 0, field: "safe",
       say: function () {
         return [
-          "Hi. I’m Pride Guide, the automated assistant for UNewHaven Pride Report. I’m a scripted program, not a person, a counselor, or a University official.",
-          "Pride Report is run by students. We can advocate for you, help you deal with a University office, support you, or help resolve a conflict. It is not an official University complaint process, and it is not monitored live.",
-          context.mode === "demo"
-            ? "This site is currently a demo. Nothing you enter is sent anywhere, so please don’t include real names or real incidents."
-            : null,
-          "Are you ready to continue?"
+          "Hi. This is Pride Guide, the automated assistant for UNewHaven Pride Report. I am a scripted program, not a person.",
+          "Pride Report is run by students. It is not affiliated with, operated by, or endorsed by the University of New Haven.",
+          "This service is not monitored 24/7 and is not an emergency service. Anything you send here is not an official University report.",
+          "You can choose not to identify yourself, but we can’t guarantee full anonymity or confidentiality. Before you submit anything, we will show you who can read it and how it is handled.",
+          context.preview ? "Preview only: this site is not accepting submissions yet. Nothing you enter is sent or saved." : null,
+          "Are you safe right now?"
         ].filter(Boolean);
       },
+      links: [{ label: "How your information is handled", href: "privacy.html", newTab: true }],
       options: [
-        { value: "continue", label: "Yes, continue", aliases: ["yes", "y", "continue", "ok", "okay", "ready"], next: "safety" },
-        { value: "privacy", label: "Explain privacy first", aliases: ["privacy", "explain privacy", "explain"], next: "privacy" }
-      ]
-    },
-
-    privacy: {
-      type: "choice", step: 0,
-      say: function () {
-        var recorded = {
-          demo: "What is recorded? In this demo, your answers are kept only in this browser so you can try the rest of the site. They are not sent anywhere.",
-          email: "What is recorded? Only what you choose to submit at the end. It is delivered by email to the Pride Report reviewers’ inbox through a form delivery service. You can skip nearly every question.",
-          backend: "What is recorded? Only what you choose to submit at the end. You can skip nearly every question, and you don’t need to give your name, a login, an email or a phone number."
-        };
-        return [
-          "Who runs this? Students. Pride Report is not part of the University, and reviewers have no power to investigate or discipline anyone.",
-          recorded[context.mode] || recorded.backend,
-          "Is it anonymous? You can submit without identifying yourself, but details you write may still identify you, and the companies that host and deliver this site process technical information such as IP addresses. We can’t promise complete anonymity.",
-          "Is it monitored? No. " + (context.expectation || "Reports are read by student reviewers when they are able to, not in real time."),
-          "The About & privacy page has the full details. Ready to continue?"
-        ];
-      },
-      links: [{ label: "Open About & privacy", href: "about.html", newTab: true }],
-      options: [
-        { value: "continue", label: "OK, continue", aliases: ["yes", "ok", "okay", "continue"], next: "safety" },
-        { value: "stop", label: "I’ll stop here", aliases: ["stop", "no", "exit"], next: "bye" }
-      ]
-    },
-
-    safety: {
-      type: "choice", step: 1,
-      say: ["Before we start: are you, or is anyone else, in immediate danger right now?"],
-      options: [
-        { value: "safe", label: "No, I’m safe right now", aliases: ["no", "safe", "i'm safe", "im safe"], next: "needs" },
-        { value: "danger", label: "Yes", aliases: ["yes", "danger"], next: "emergency" },
+        { value: "yes", label: "Yes", aliases: ["yes", "y", "i'm safe", "im safe", "safe"], next: "help" },
+        { value: "no", label: "No", aliases: ["no", "n"], next: "emergency" },
         { value: "unsure", label: "I’m not sure", aliases: ["not sure", "unsure", "maybe"], next: "emergency" }
       ]
     },
 
     emergency: {
-      type: "choice", step: 1, tone: "urgent",
+      type: "choice", step: 0, tone: "urgent",
       say: [
-        "I can’t call anyone or send help. I’m an automated tool and nobody is watching this conversation live.",
-        "If there is immediate danger, call University Public Safety at (203) 932-7070, or call 911.",
-        "If you’re thinking about harming yourself, you can call or text 988 at any time.",
-        "You can come back to this whenever you want. What would you like to do?"
+        "This assistant cannot call anyone or send help, and nobody is watching this conversation live.",
+        "If you or someone else is in immediate danger, call University Public Safety at (203) 932-7070, or call 911.",
+        "If you are thinking about harming yourself, you can call or text 988 at any time.",
+        "You don’t need to tell us anything about what is happening. If there is something you want to document that is not an emergency, you can continue."
       ],
       links: [
         { label: "Call Public Safety", href: "tel:+12039327070" },
         { label: "Call 911", href: "tel:911" },
-        { label: "Call or text 988", href: "tel:988" }
+        { label: "Call or text 988", href: "tel:988" },
+        { label: "Leave this site now", action: "exit" }
       ],
       options: [
-        { value: "continue", label: "Continue", aliases: ["continue"], next: "needs" },
-        { value: "stop", label: "Stop for now", aliases: ["stop"], next: "bye" }
+        { value: "continue", label: "I understand this can’t send help. Continue", aliases: ["continue", "i understand"], next: "help" },
+        { value: "stop", label: "Stop here", aliases: ["stop"], next: "bye" }
       ]
     },
 
-    needs: {
-      type: "multi", step: 2, field: "needs",
-      say: [
-        "What can we do for you? Choose everything that fits, then select Done.",
-        "If you only want something on the record, choose “Just document it”."
-      ],
-      links: [
-        { label: "Browse resources instead", href: "resources.html", newTab: true },
-        { label: "Check on a report I already sent", href: "track.html" }
-      ],
+    /* ---------- 2. How can we help? ---------- */
+
+    help: {
+      type: "choice", step: 1, field: "help",
+      say: ["How can we help?"],
       options: [
-        { value: "advocate", label: "Advocate for me" },
-        { value: "office", label: "Help me with a University office" },
-        { value: "support", label: "Support me" },
-        { value: "conflict", label: "Help me resolve a conflict" },
-        { value: "official", label: "Explain my official reporting options" },
-        { value: "document", label: "Just document it" },
-        { value: "unsure", label: "I’m not sure yet" }
+        { value: "report", label: "I need to report something", primary: true, desc: "Tell us what happened so that it is on record.", aliases: ["report", "report something"] },
+        { value: "office", label: "I need help with a University office", desc: "Housing, records, financial aid, or any office or process.", aliases: ["office", "help with an office"] },
+        { value: "peer", label: "I need peer support", desc: "Someone to listen, or help finding community.", aliases: ["peer support", "support"] },
+        { value: "advocate", label: "I need an advocate / someone to help me speak up", desc: "Help understanding options, wording a message, or raising a concern.", aliases: ["advocate", "advocacy", "speak up"] },
+        { value: "info", label: "I need information or resources", desc: "Reporting routes, support services, community.", aliases: ["information", "resources", "info"] },
+        { value: "other", label: "Something else / I’m not sure", desc: "You don’t have to put it in a category.", aliases: ["something else", "not sure", "other"] }
       ],
       onAnswer: function (answers) {
-        // Drop follow-up answers that belong to kinds of help the student has unselected.
-        if (!has(answers, "advocate")) delete answers.advocate_consent;
-        if (!has(answers, "office")) delete answers.office_which;
-        if (!has(answers, "support")) delete answers.support_kind;
-        if (!has(answers, "conflict")) { delete answers.conflict_with; delete answers.conflict_contact; }
+        BRANCH_ANSWERS.forEach(function (key) { delete answers[key]; });
       },
-      next: function (a) { return nextDetail(a, null); }
+      next: function (a) { return BRANCH_START[help(a)]; }
     },
 
-    advocate_consent: {
-      type: "choice", step: 3, field: "advocate_consent", optional: true, partOf: "needs",
+    /* ---------- 3A. I need to report something ---------- */
+
+    a_what: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
+      placeholder: "Type here",
       say: [
-        "You asked us to advocate for you. Advocating can mean a student reviewer raising this with a University office or staff member.",
-        "How would you like us to do that? Nothing is raised with anyone until a reviewer has read your report."
+        "Tell us what happened, in your own words.",
+        "Share as much or as little as you want. You don’t need to name anyone."
+      ],
+      skipNext: "a_skip",
+      next: "a_categories"
+    },
+
+    a_skip: {
+      type: "choice", step: 2, partOf: "help",
+      say: ["A report needs at least a few words to be useful to the people reading it. What would you like to do?"],
+      options: [
+        { value: "write", label: "Write a few words", aliases: ["write", "go back"], next: "a_what" },
+        { value: "resources", label: "Show me resources instead", aliases: ["resources"], next: "end_resources" }
+      ]
+    },
+
+    a_categories: {
+      type: "multi", step: 2, field: "categories", optional: true, partOf: "help",
+      say: [
+        "If you’d like, choose anything that describes it. You can pick more than one, or skip this.",
+        "This only helps route your report. It isn’t a judgment about what it “counts” as."
       ],
       options: [
-        { value: "ask_first", label: "Talk to me before doing anything", aliases: ["talk to me first", "ask first", "ask me first"] },
-        { value: "without_name", label: "Raise it without naming me", aliases: ["without my name", "no name"] },
-        { value: "with_name", label: "You can use my name", aliases: ["use my name", "with my name"] },
-        UNSURE
+        { value: "harassment", label: "Harassment or bullying" },
+        { value: "discrimination", label: "Discrimination" },
+        { value: "identity", label: "Gender identity, name or pronouns" },
+        { value: "housing", label: "Residence life or housing" },
+        { value: "academics", label: "Academics or faculty" },
+        { value: "facilities", label: "Facilities or restrooms" },
+        { value: "safety", label: "Threats or safety" },
+        { value: "online", label: "Online" },
+        { value: "climate", label: "Policy or campus climate" },
+        { value: "other", label: "Other" },
+        { value: "unsure", label: "I’m not sure" }
       ],
-      next: function (a) { return nextDetail(a, "advocate"); }
+      next: "a_where"
     },
 
-    office_which: {
-      type: "choice", step: 3, field: "office_which", allowText: true, optional: true, maxLength: 300, partOf: "needs",
-      say: ["Which office or service do you need help with? If it isn’t listed, type it."],
+    a_where: {
+      type: "choice", step: 2, field: "where", allowText: true, optional: true, maxLength: 300, partOf: "help",
+      say: ["Where did it happen? A general answer is fine, or type your own."],
+      options: [
+        { value: "residence", label: "Residence hall", aliases: ["dorm", "residence"] },
+        { value: "academic", label: "Classroom or academic building", aliases: ["classroom", "class"] },
+        { value: "common", label: "Dining or common space", aliases: ["dining", "common space"] },
+        { value: "office", label: "Campus office or service", aliases: ["office"] },
+        { value: "athletics", label: "Athletics or recreation", aliases: ["athletics", "gym"] },
+        { value: "online", label: "Online", aliases: ["online", "social media"] },
+        { value: "off_campus", label: "Off campus", aliases: ["off campus"] },
+        { value: "campus_wide", label: "Campus-wide", aliases: ["everywhere", "campus wide"] },
+        PREFER_NOT
+      ],
+      next: "a_when"
+    },
+
+    a_when: {
+      type: "choice", step: 2, field: "when", allowText: true, optional: true, maxLength: 300, partOf: "help",
+      say: ["Roughly when? You can also type a date."],
+      options: [
+        { value: "recent", label: "Today or yesterday", aliases: ["today", "yesterday"] },
+        { value: "week", label: "In the past week", aliases: ["this week", "past week"] },
+        { value: "month", label: "In the past month", aliases: ["this month", "past month"] },
+        { value: "earlier", label: "Longer ago", aliases: ["earlier", "a while ago"] },
+        PREFER_NOT
+      ],
+      next: "a_frequency"
+    },
+
+    a_frequency: {
+      type: "choice", step: 2, field: "frequency", optional: true, partOf: "help",
+      say: ["Did it happen once, or more than once?"],
+      options: [
+        { value: "once", label: "Once", aliases: ["once", "one time"] },
+        { value: "repeated", label: "More than once", aliases: ["repeated", "more than once"] },
+        UNSURE, PREFER_NOT
+      ],
+      next: "a_ongoing"
+    },
+
+    a_ongoing: {
+      type: "choice", step: 2, field: "ongoing", optional: true, partOf: "help",
+      say: ["Is it still happening?"],
+      options: [
+        { value: "yes", label: "Yes", aliases: ["yes", "y"] },
+        { value: "no", label: "No", aliases: ["no", "n"] },
+        UNSURE, PREFER_NOT
+      ],
+      next: "a_wants"
+    },
+
+    a_wants: {
+      type: "multi", step: 2, field: "wants", optional: true, partOf: "help",
+      say: ["What do you most want to happen? Choose any that apply."],
+      options: [
+        { value: "document", label: "Have it on record" },
+        { value: "resources", label: "Get resources" },
+        { value: "listen", label: "Have someone listen" },
+        { value: "advocacy", label: "Have someone advocate for me" },
+        { value: "office", label: "Get help with a University office" },
+        { value: "other", label: "Something else" }
+      ],
+      next: "contact_want"
+    },
+
+    /* ---------- 3B. I need help with a University office ---------- */
+
+    b_office: {
+      type: "choice", step: 2, field: "office", allowText: true, optional: true, maxLength: 300, partOf: "help",
+      say: ["Which office or process is this about? If it isn’t listed, type it."],
       options: [
         { value: "housing", label: "Housing or residential life", aliases: ["housing", "residential life", "reslife"] },
         { value: "records", label: "Records or registration (name, ID, email)", aliases: ["registrar", "records", "name change"] },
@@ -169,461 +257,521 @@
         { value: "title_ix", label: "Title IX", aliases: ["title ix", "title 9"] },
         { value: "public_safety", label: "Public Safety", aliases: ["public safety", "campus police"] },
         { value: "athletics", label: "Athletics or recreation", aliases: ["athletics", "recreation"] },
-        { value: "academic", label: "An academic department or advisor", aliases: ["department", "advisor", "academic"] },
-        UNSURE
+        { value: "academic", label: "An academic department or advisor", aliases: ["department", "advisor"] },
+        { value: "dont_know", label: "I don’t know who handles this", aliases: ["don't know", "dont know", "not sure", "unsure"] }
       ],
-      next: function (a) { return nextDetail(a, "office"); }
+      next: "b_goal"
     },
 
-    support_kind: {
-      type: "choice", step: 3, field: "support_kind", optional: true, partOf: "needs",
-      say: [
-        "What kind of support would help most?",
-        "Reviewers are trained students, not counselors. They can also point you to professional support."
-      ],
-      options: [
-        { value: "talk", label: "A student to talk it through with", aliases: ["talk", "someone to talk to"] },
-        { value: "accompany", label: "Someone to come with me to a meeting or office", aliases: ["come with me", "accompany"] },
-        { value: "resources", label: "Help finding counseling or community", aliases: ["counseling", "community", "resources"] },
-        { value: "checkin", label: "Someone to check in with me", aliases: ["check in", "check-ins"] },
-        UNSURE
-      ],
-      next: function (a) { return nextDetail(a, "support"); }
-    },
-
-    conflict_with: {
-      type: "choice", step: 3, field: "conflict_with", optional: true, partOf: "needs",
-      say: ["Who is the conflict with? A general description is enough. You don’t need to name anyone."],
-      options: [
-        { value: "roommate", label: "A roommate or housemate", aliases: ["roommate", "housemate"] },
-        { value: "student", label: "Another student", aliases: ["student", "classmate"] },
-        { value: "group", label: "A student group or team", aliases: ["group", "club", "team"] },
-        { value: "faculty", label: "Faculty or an instructor", aliases: ["faculty", "instructor", "professor"] },
-        { value: "staff", label: "University staff", aliases: ["staff"] },
-        UNSURE
-      ],
-      next: "conflict_contact"
-    },
-
-    conflict_contact: {
-      type: "choice", step: 3, field: "conflict_contact", optional: true, partOf: "needs",
-      say: [
-        "Resolving a conflict usually means the other person learns that you asked for help.",
-        "How do you feel about that? A reviewer will never contact them without talking to you first."
-      ],
-      options: [
-        { value: "ok", label: "That’s OK with me", aliases: ["ok", "okay", "fine", "yes"] },
-        { value: "ask_first", label: "Only after checking with me", aliases: ["ask first", "check with me"] },
-        { value: "no", label: "I’d rather they not know", aliases: ["no", "rather not"] },
-        UNSURE
-      ],
-      next: function (a) { return nextDetail(a, "conflict"); }
-    },
-
-    path: {
-      type: "choice", step: 4, field: "path",
-      say: ["Is this about something specific that happened, or a more general situation?"],
-      options: [
-        { value: "incident", label: "Something specific that happened", aliases: ["incident", "something happened", "specific"] },
-        { value: "concern", label: "An ongoing situation or general concern", aliases: ["concern", "general", "ongoing", "situation"] }
-      ],
-      onAnswer: function (answers, ans) {
-        if (ans.value !== "incident") {
-          delete answers.when; delete answers.who; delete answers.role; delete answers.reported;
-        }
-      },
-      next: "category"
-    },
-
-    category: {
-      type: "choice", step: 5, field: "category", allowText: true, optional: true, maxLength: 300,
-      say: [
-        "Which of these is closest to what it’s about? If none fit, type your own words instead.",
-        "This only helps route your report. Choosing a category isn’t a judgment about what it “counts” as."
-      ],
-      options: [
-        { value: "harassment", label: "Harassment or bullying", aliases: ["harassment", "bullying"] },
-        { value: "discrimination", label: "Discrimination", aliases: ["unequal treatment"] },
-        { value: "deadnaming", label: "Deadnaming or misgendering", aliases: ["deadnaming", "misgendering", "pronouns"] },
-        { value: "housing", label: "Housing or residence life", aliases: ["housing", "residence life", "roommate", "dorm"] },
-        { value: "academics", label: "Faculty or academics", aliases: ["faculty", "academics", "class", "professor"] },
-        { value: "facilities", label: "Facilities or accessibility", aliases: ["facilities", "accessibility", "restroom", "bathroom"] },
-        { value: "climate", label: "Campus climate", aliases: ["climate", "graffiti", "policy"] },
-        UNSURE
-      ],
-      next: "what"
-    },
-
-    what: {
-      type: "text", step: 6, field: "what", optional: true, multiline: true,
+    b_goal: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
       placeholder: "Type here, or skip",
-      say: function (a) {
+      say: ["What are you trying to get done?"],
+      next: "b_contacted"
+    },
+
+    b_contacted: {
+      type: "choice", step: 2, field: "contacted", optional: true, partOf: "help",
+      say: ["Have you contacted them already?"],
+      options: [
+        { value: "no", label: "No", aliases: ["no", "n", "not yet"], next: "b_deadline" },
+        { value: "yes", label: "Yes", aliases: ["yes", "y"], next: "b_summary" },
+        Object.assign({}, PREFER_NOT, { next: "b_deadline" })
+      ],
+      onAnswer: function (answers, ans) { if (ans.value !== "yes") delete answers.contact_summary; },
+      next: "b_deadline"
+    },
+
+    b_summary: {
+      type: "text", step: 2, field: "contact_summary", optional: true, multiline: true, maxLength: 2000, partOf: ["help", "b_contacted"],
+      placeholder: "Type here, or skip",
+      say: ["If you’d like, tell us briefly what happened when you contacted them."],
+      next: "b_deadline"
+    },
+
+    b_deadline: {
+      type: "choice", step: 2, field: "deadline", allowText: true, optional: true, maxLength: 300, partOf: "help",
+      say: ["Is there a deadline or date coming up? You can also type one."],
+      options: deadlineOptions,
+      next: "b_assist"
+    },
+
+    b_assist: {
+      type: "multi", step: 2, field: "assist", optional: true, partOf: "help",
+      say: function () {
         return [
-          isIncident(a)
-            ? "In your own words, what happened? Share as much or as little as you want."
-            : "In your own words, what is going on? Share as much or as little as you want.",
-          "You don’t need to include anyone’s name. Anything you write here will be read by the student reviewers."
+          "What kind of assistance would help? Choose any that apply.",
+          "Reviewers are students. They can’t represent you legally, guarantee a decision, or override University policy."
         ];
-      },
-      next: function (a) { return isIncident(a) ? "when" : "where"; }
-    },
-
-    when: {
-      type: "choice", step: 7, field: "when", allowText: true, optional: true, maxLength: 300,
-      say: ["Roughly when did it happen? You can also type a date."],
-      options: [
-        { value: "recent", label: "Today or yesterday", aliases: ["today", "yesterday"] },
-        { value: "week", label: "In the past week", aliases: ["this week", "past week"] },
-        { value: "month", label: "In the past month", aliases: ["this month", "past month"] },
-        { value: "earlier", label: "Longer ago", aliases: ["earlier", "a while ago"] },
-        UNSURE
-      ],
-      next: "where"
-    },
-
-    where: {
-      type: "choice", step: 8, field: "where", allowText: true, optional: true, maxLength: 300,
-      say: function (a) {
-        return [isIncident(a)
-          ? "Where did it happen? A general answer is fine."
-          : "Where does this come up? A general answer is fine."];
-      },
-      options: [
-        { value: "residence", label: "Residence hall", aliases: ["dorm", "residence"] },
-        { value: "academic", label: "Classroom or academic building", aliases: ["classroom", "class", "academic building"] },
-        { value: "common", label: "Dining or common space", aliases: ["dining", "common space"] },
-        { value: "office", label: "Campus office or service", aliases: ["office", "campus office"] },
-        { value: "athletics", label: "Athletics or recreation", aliases: ["athletics", "recreation", "gym"] },
-        { value: "online", label: "Online or social media", aliases: ["online", "social media"] },
-        { value: "off_campus", label: "Off campus", aliases: ["off campus"] },
-        { value: "campus_wide", label: "Campus-wide", aliases: ["everywhere", "campus wide"] },
-        UNSURE
-      ],
-      next: function (a) { return isIncident(a) ? "who" : "frequency"; }
-    },
-
-    who: {
-      type: "choice", step: 9, field: "who", optional: true,
-      say: [
-        "Who was involved? Please choose a general description rather than a name.",
-        "Pride Report documents what you share. It doesn’t investigate or decide whether anyone did something wrong."
-      ],
-      options: [
-        { value: "student", label: "Another student or students", aliases: ["student", "students"] },
-        { value: "faculty", label: "Faculty or an instructor", aliases: ["faculty", "instructor", "professor"] },
-        { value: "staff", label: "University staff", aliases: ["staff"] },
-        { value: "non_affiliated", label: "Someone not affiliated with the University", aliases: ["not affiliated", "visitor"] },
-        { value: "unknown", label: "I don’t know who", aliases: ["unknown", "don't know", "dont know"] }
-      ],
-      next: "frequency"
-    },
-
-    frequency: {
-      type: "choice", step: 10, field: "frequency", optional: true,
-      say: function (a) {
-        return [isIncident(a) ? "Has this happened more than once?" : "Is this a one-time issue or an ongoing one?"];
-      },
-      options: [
-        { value: "once", label: "One time", aliases: ["once", "one time", "no"] },
-        { value: "repeated", label: "More than once", aliases: ["repeated", "more than once", "yes"] },
-        { value: "ongoing", label: "It’s ongoing", aliases: ["ongoing"] },
-        UNSURE
-      ],
-      next: function (a) { return isIncident(a) ? "role" : "outcome"; }
-    },
-
-    role: {
-      type: "choice", step: 11, field: "role", optional: true,
-      say: ["How are you connected to it?"],
-      options: [
-        { value: "experienced", label: "It happened to me", aliases: ["me", "happened to me"] },
-        { value: "witnessed", label: "I witnessed it", aliases: ["witness", "witnessed", "i saw it"] },
-        { value: "heard", label: "Someone told me about it", aliases: ["heard", "someone told me"] }
-      ],
-      next: "reported"
-    },
-
-    reported: {
-      type: "choice", step: 12, field: "reported", optional: true,
-      say: ["Has this been reported to a University office, such as Report It!, Title IX, or Public Safety?"],
-      options: [
-        { value: "yes", label: "Yes", aliases: ["yes", "y"] },
-        { value: "no", label: "No", aliases: ["no", "n"] },
-        UNSURE
-      ],
-      next: "outcome"
-    },
-
-    outcome: {
-      type: "text", step: 13, field: "outcome", optional: true, multiline: true, maxLength: 2000,
-      placeholder: "Type here, or skip",
-      say: [
-        "What would a good outcome look like for you?",
-        "For example: an apology, a room change, a corrected name on a roster, a policy fixed, or just being heard. We can’t promise a result, but it tells reviewers what to work toward."
-      ],
-      next: "timing"
-    },
-
-    timing: {
-      type: "choice", step: 14, field: "timing", allowText: true, optional: true, maxLength: 300,
-      say: ["Is there a deadline or date coming up that we should know about? You can also type one."],
-      options: [
-        { value: "none", label: "No deadline", aliases: ["no", "none", "no deadline"] },
-        { value: "days", label: "Within a few days", aliases: ["days", "this week", "soon"] },
-        { value: "weeks", label: "Within a few weeks", aliases: ["weeks", "this month"] },
-        UNSURE
-      ],
-      next: "anything_else"
-    },
-
-    anything_else: {
-      type: "text", step: 15, field: "anything_else", optional: true, multiline: true,
-      placeholder: "Type here, or skip",
-      say: ["Is there anything else you want the reviewers to know?"],
-      next: "contact_mode"
-    },
-
-    contact_mode: {
-      type: "choice", step: 16, field: "contact_mode",
-      say: function (a) {
-        var lines = ["Last part: how would you like to submit this?"];
-        var choices = "• Anonymous: no name or contact details. " + (context.tracking
-          ? "You get an access code to view your report, but reviewers can’t message you."
-          : "Reviewers will read it but have no way to reply to you.");
-        if (context.tracking) {
-          choices += "\n• Private follow-up: still no name or contact details. You and a reviewer exchange messages on this site using your access code.";
-        }
-        choices += "\n• Identified: you choose to share a name and a way to reach you.";
-        lines.push(choices);
-        if (wantsHelp(a)) {
-          lines.push(context.tracking
-            ? "You asked for help, so a reviewer needs a way to reach you. Private follow-up or identified makes that possible."
-            : "You asked for help, so a reviewer needs a way to reach you. Choose identified if you’d like us to act on this with you.");
-        }
-        return lines;
       },
       get options() {
-        var all = [
-          { value: "anonymous", label: "Anonymous", aliases: ["anonymous", "anon"] },
-          { value: "portal", label: "Private follow-up on this site", aliases: ["private", "private follow up", "follow up", "portal"] },
-          { value: "identified", label: "Identified", aliases: ["identified", "share my name"] }
+        return [
+          { value: "identify", label: "Work out which office handles this" },
+          { value: "explain", label: "Explain the process" },
+          { value: "draft", label: "Help wording a message" },
+          { value: "prepare", label: "Help preparing for a meeting" },
+          { value: "accompany", label: context.services.ACCOMPANIMENT ? "Someone to come with me" : "Someone to come with me, if a reviewer is available" },
+          { value: "other", label: "Something else" }
         ];
-        return context.tracking ? all : all.filter(function (o) { return o.value !== "portal"; });
       },
+      next: "contact_want"
+    },
+
+    /* ---------- 3C. I need peer support ---------- */
+
+    c_kind: {
+      type: "multi", step: 2, field: "peer_kind", optional: true, partOf: "help",
+      say: function () {
+        return [
+          "What would you like? Choose any that apply.",
+          context.services.PEER_SUPPORT
+            ? "Peer support here means trained students, not counselors, and it is not immediate."
+            : "We can’t promise that a trained peer supporter is available right now, and this is not counseling. You can still send a request, and the links below reach established support today."
+        ];
+      },
+      links: [{ label: "Support you can reach today", href: "resources.html#support", newTab: true }],
+      options: [
+        { value: "listen", label: "Someone to listen" },
+        { value: "community", label: "Connect with campus LGBTQ+ community" },
+        { value: "resources", label: "Help finding resources" },
+        { value: "navigate", label: "Help with a difficult interaction" },
+        { value: "other", label: "Something else" }
+      ],
+      next: "c_context"
+    },
+
+    c_context: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
+      placeholder: "Type here, or skip",
+      say: ["If you’d like, share a little about what is going on. You don’t need to go into detail, and you can skip this."],
+      next: "contact_want"
+    },
+
+    /* ---------- 3D. I need an advocate ---------- */
+
+    d_concern: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
+      placeholder: "Type here, or skip",
+      say: ["What is the concern you’d like help speaking up about?"],
+      next: "d_outcome"
+    },
+
+    d_outcome: {
+      type: "text", step: 2, field: "outcome", optional: true, multiline: true, maxLength: 2000, partOf: "help",
+      placeholder: "Type here, or skip",
+      say: ["What outcome are you hoping for?"],
+      next: "d_deadline"
+    },
+
+    d_deadline: {
+      type: "choice", step: 2, field: "deadline", allowText: true, optional: true, maxLength: 300, partOf: "help",
+      say: ["Is a meeting or deadline coming up? You can also type a date."],
+      options: deadlineOptions,
+      next: "d_kind"
+    },
+
+    d_kind: {
+      type: "multi", step: 2, field: "advocacy_kind", optional: true, partOf: "help",
+      say: function () {
+        return [
+          "What would advocacy look like for you? Choose any that apply.",
+          "What the student team can do: listen, explain your options, help you prepare, and, only with your separate permission, raise a concern.",
+          "What it can’t do: act as your lawyer, guarantee an outcome, or override a University decision." +
+            (context.services.ADVOCACY ? "" : " We also can’t promise an advocate is available yet."),
+          "Asking for an advocate does not give us permission to contact anyone. We will ask about that separately."
+        ];
+      },
+      get options() {
+        return [
+          { value: "options", label: "Help me understand my options" },
+          { value: "draft", label: "Help wording a message" },
+          { value: "attend", label: context.services.ACCOMPANIMENT ? "Come to a meeting with me" : "Come to a meeting with me, if a reviewer is available" },
+          { value: "general", label: "Raise a general concern without identifying me" },
+          { value: "other", label: "Something else" }
+        ];
+      },
+      next: "contact_want"
+    },
+
+    /* ---------- 3E. I need information or resources ---------- */
+
+    e_topic: {
+      type: "choice", step: 2, field: "topic", optional: true, partOf: "help",
+      say: ["What would you like information about?"],
+      options: [
+        { value: "reporting", label: "Reporting routes", aliases: ["reporting", "report"] },
+        { value: "housing", label: "Residence life", aliases: ["housing", "residence life"] },
+        { value: "title_ix", label: "Discrimination or Title IX", aliases: ["title ix", "discrimination"] },
+        { value: "community", label: "Community", aliases: ["community"] },
+        { value: "mental_health", label: "Mental health support", aliases: ["mental health", "counseling"] },
+        { value: "safety", label: "Safety", aliases: ["safety"] },
+        { value: "other", label: "Something else", aliases: ["other"] }
+      ],
+      next: "e_resources"
+    },
+
+    e_resources: {
+      type: "choice", step: 2, field: "follow_up", partOf: "help",
+      // The page shows resource cards for the chosen topic alongside this question.
+      resources: function (a) { return value(a.topic) || "other"; },
+      say: [
+        "Here are some places to start. You can use any of them without sending us anything.",
+        "Would you also like to send a question to the student reviewers?"
+      ],
+      links: [{ label: "See all resources", href: "resources.html", newTab: true }],
+      options: [
+        { value: "no", label: "No, this is what I needed", aliases: ["no", "n", "done"], next: "end_info" },
+        { value: "yes", label: "Yes, send a question", aliases: ["yes", "y"], next: "e_request" }
+      ]
+    },
+
+    e_request: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
+      placeholder: "Type here, or skip",
+      say: ["What would you like to ask?"],
+      next: "contact_want"
+    },
+
+    /* ---------- 3F. Something else / I'm not sure ---------- */
+
+    f_what: {
+      type: "text", step: 2, field: "narrative", optional: true, multiline: true, partOf: "help",
+      placeholder: "Type here, or skip",
+      say: ["You don’t have to put it in a category. What would you like us to know or help with?"],
+      next: "f_next"
+    },
+
+    f_next: {
+      type: "multi", step: 2, field: "next_steps", optional: true, partOf: "help",
+      say: ["Would any of these help? Choose any that apply, or skip this."],
+      options: [
+        { value: "listen", label: "Someone to listen" },
+        { value: "resources", label: "Information or resources" },
+        { value: "office", label: "Help with a University office" },
+        { value: "advocacy", label: "Someone to help me speak up" },
+        { value: "document", label: "Just have it on record" },
+        { value: "unsure", label: "I’m not sure yet" }
+      ],
+      next: "contact_want"
+    },
+
+    /* ---------- 4. Contact, privacy, permissions ---------- */
+
+    contact_want: {
+      type: "choice", step: 3, field: "contact_want",
+      say: function (a) {
+        return [
+          "Would you like someone from our student team to contact you about this?",
+          needsReply(a) ? "The help you asked for needs a way to reach you. If you choose No, reviewers can read this but can’t follow up with you." : null
+        ].filter(Boolean);
+      },
+      options: [
+        { value: "yes", label: "Yes", aliases: ["yes", "y"], next: "contact_email" },
+        { value: "no", label: "No", aliases: ["no", "n"], next: "privacy" }
+      ],
       onAnswer: function (answers, ans) {
-        if (ans.value !== "identified") {
-          delete answers.contact_name;
-          delete answers.contact_method;
-          delete answers.contact_discreet;
-        }
-      },
-      next: function (a) { return a.contact_mode.value === "identified" ? "contact_name" : "review"; }
+        if (ans.value !== "yes") { delete answers.contact_email; delete answers.contact_name; delete answers.contact_discreet; }
+      }
+    },
+
+    contact_email: {
+      type: "text", step: 3, field: "contact_email", partOf: "contact_want", maxLength: 254, pattern: EMAIL,
+      placeholder: "name@example.com", inputType: "email",
+      say: [
+        "What email address should we use? It doesn’t have to be your University address.",
+        "Email is the only way we contact people. If you’d rather not give one, go back and choose No."
+      ],
+      next: "contact_name"
     },
 
     contact_name: {
-      type: "text", step: 16, field: "contact_name", optional: true, partOf: "contact_mode", maxLength: 120,
+      type: "text", step: 3, field: "contact_name", optional: true, partOf: "contact_want", maxLength: 120,
       placeholder: "Name to use for you",
-      say: ["What name should a reviewer use for you? It doesn’t have to be your legal name."],
-      next: "contact_method"
-    },
-
-    contact_method: {
-      type: "text", step: 16, field: "contact_method", partOf: "contact_mode", maxLength: 200,
-      placeholder: "Email or phone number",
-      say: ["What’s the best way to reach you? For example, an email address or phone number you’re comfortable using."],
+      say: ["What name should we use for you? It doesn’t have to be your legal name, and you can skip this."],
       next: "contact_discreet"
     },
 
     contact_discreet: {
-      type: "choice", step: 16, field: "contact_discreet", optional: true, partOf: "contact_mode",
-      say: ["When a reviewer contacts you, is it OK for the message to mention Pride Report?"],
+      type: "choice", step: 3, field: "contact_discreet", optional: true, partOf: "contact_want",
+      say: ["When we email you, is it OK for the message to mention Pride Report?"],
       options: [
         { value: "ok", label: "Yes, that’s fine", aliases: ["yes", "fine", "ok", "okay"] },
         { value: "discreet", label: "No, please be discreet", aliases: ["no", "discreet", "be discreet"] }
       ],
+      next: "privacy"
+    },
+
+    privacy: {
+      type: "choice", step: 3, field: "privacy_ack",
+      say: function () {
+        return [
+          "Before you send anything, here is how it is handled.",
+          "Who can read it: a small team of student reviewers. Each one signs in with their own account and a second sign-in step, and every time a submission is opened it is logged. It is not sent to the University.",
+          "How it is delivered and stored: it goes from this page to a private database hosted by Supabase. Reviewers get an email saying that something arrived. That email does not contain what you wrote.",
+          "When to expect a response: reviewers read submissions " + policy("REVIEW_HOURS") + ". A first response usually comes " + policy("RESPONSE_TIME") + ". A submission that has been received has not necessarily been read yet.",
+          "How long it is kept: " + policy("RETENTION") + ".",
+          "Limits of confidentiality: " + policy("CONFIDENTIALITY_LIMITS") + " What you write may identify you even without your name, and the companies that host this site process technical information such as IP addresses.",
+          "This is not a University report. If you want the University to act, the Resources page lists the official routes."
+        ];
+      },
+      links: [{ label: "Open the full privacy page", href: "privacy.html", newTab: true }],
+      options: [
+        { value: "ok", label: "I understand. Continue", aliases: ["ok", "okay", "continue", "i understand", "yes"] },
+        { value: "stop", label: "Stop here without submitting", aliases: ["stop", "no"], next: "bye" }
+      ],
+      next: function (a) { return needsConsent(a) ? "consent" : "review"; }
+    },
+
+    consent: {
+      type: "choice", step: 3, field: "external_contact",
+      say: [
+        "One more permission, and it is separate from everything above.",
+        "May a student reviewer contact a University office or another person about this on your behalf?",
+        "Asking for help with an office or for an advocate does not give us this permission. Unless you say yes here, we will not contact anyone."
+      ],
+      options: [
+        { value: "no", label: "No. Don’t contact anyone", aliases: ["no", "n"], next: "review" },
+        { value: "ask", label: "Ask me first, each time", aliases: ["ask", "ask me first"], next: "review" },
+        { value: "anonymous", label: "Yes, without identifying me", aliases: ["anonymous", "without identifying me"], next: "consent_scope" },
+        { value: "named", label: "Yes, and you may identify me", aliases: ["named", "yes"], next: "consent_scope" }
+      ],
+      onAnswer: function (answers, ans) {
+        if (ans.value !== "anonymous" && ans.value !== "named") delete answers.external_contact_scope;
+      }
+    },
+
+    consent_scope: {
+      type: "text", step: 3, field: "external_contact_scope", optional: true, multiline: true, maxLength: 500, partOf: "consent",
+      placeholder: "Type here, or skip",
+      say: ["Who may we contact, and what may we share? For example: “Residential life, about the room change.” A reviewer will still confirm with you if anything is unclear."],
       next: "review"
     },
 
+    /* ---------- 5. Review, explicit submit, verified receipt ---------- */
+
     review: {
-      type: "review", step: 17,
+      type: "review", step: 4,
       say: [
-        "Here is everything you’ve told me. Nothing has been submitted yet.",
-        "You can change any answer. When you’re ready, confirm the two statements and submit."
+        "Here is everything you’ve told me. Nothing has been sent yet.",
+        "You can change any answer. When you are ready, confirm the two statements and press Submit."
       ],
       next: "submitted"
     },
 
-    submitted: { type: "end", step: 17, receipt: true, say: [] },
+    submitted: { type: "end", step: 4, receipt: true, say: [] },
+
+    /* ---------- Endings that submit nothing ---------- */
+
+    end_resources: {
+      type: "end", step: 2, partOf: "help", showResources: "reporting",
+      say: ["No problem. Nothing has been sent. Here are places you can turn to, including the official University reporting routes."],
+      links: [{ label: "See all resources", href: "resources.html" }]
+    },
+
+    end_info: {
+      type: "end", step: 2, partOf: "help",
+      say: ["Glad that helped. Nothing has been sent. You can come back any time."],
+      links: [{ label: "See all resources", href: "resources.html" }]
+    },
 
     bye: {
       type: "end", step: 0,
       say: [
-        "Okay. Nothing has been submitted.",
+        "Okay. Nothing has been sent.",
         "You can come back any time. If you need support now, the Resources page lists people you can contact."
       ],
       links: [{ label: "Open Resources", href: "resources.html" }]
     }
   };
 
-  var summaryFields = [
-    { node: "needs", label: "What we can do for you" },
-    { node: "advocate_consent", label: "How to advocate", need: "advocate" },
-    { node: "office_which", label: "Office or service", need: "office" },
-    { node: "support_kind", label: "Kind of support", need: "support" },
-    { node: "conflict_with", label: "Conflict with", need: "conflict" },
-    { node: "conflict_contact", label: "Involving the other person", need: "conflict" },
-    { node: "path", label: "About" },
-    { node: "category", label: "Category" },
-    { node: "what", label: "What happened", concernLabel: "What is going on" },
-    { node: "when", label: "When", incidentOnly: true },
-    { node: "where", label: "Where" },
-    { node: "who", label: "Who was involved", incidentOnly: true },
-    { node: "frequency", label: "How often" },
-    { node: "role", label: "Your connection", incidentOnly: true },
-    { node: "reported", label: "Reported to the University", incidentOnly: true },
-    { node: "outcome", label: "A good outcome" },
-    { node: "timing", label: "Deadline or date" },
-    { node: "anything_else", label: "Anything else" },
-    { node: "contact_mode", label: "How you’re submitting" },
-    { node: "contact_name", label: "Name", identifiedOnly: true },
-    { node: "contact_method", label: "Contact", identifiedOnly: true },
-    { node: "contact_discreet", label: "OK to mention Pride Report", identifiedOnly: true }
-  ];
+  var NARRATIVE_NODE = { report: "a_what", office: "b_goal", peer: "c_context", advocate: "d_concern", info: "e_request", other: "f_what" };
+  var NARRATIVE_LABEL = {
+    report: "What happened", office: "What you’re trying to get done", peer: "What is going on",
+    advocate: "The concern", info: "Your question", other: "What you’d like us to know"
+  };
+  var DEADLINE_NODE = { office: "b_deadline", advocate: "d_deadline" };
+
+  // Rows of the review screen for each kind of help: [node id, label].
+  var BRANCH_ROWS = {
+    report: [["a_categories", "Categories"], ["a_where", "Where"], ["a_when", "When"], ["a_frequency", "How often"],
+      ["a_ongoing", "Still happening"], ["a_wants", "What you want to happen"]],
+    office: [["b_office", "Office or process"], ["b_contacted", "Already contacted them"], ["b_summary", "What happened when you did"],
+      ["b_deadline", "Deadline"], ["b_assist", "Assistance that would help"]],
+    peer: [["c_kind", "Support you’d like"]],
+    advocate: [["d_outcome", "Outcome you’re hoping for"], ["d_deadline", "Meeting or deadline"], ["d_kind", "What advocacy looks like"]],
+    info: [["e_topic", "Topic"]],
+    other: [["f_next", "Next steps that might help"]]
+  };
 
   function summary(answers) {
-    var incident = isIncident(answers);
-    var identified = answers.contact_mode && answers.contact_mode.value === "identified";
-    return summaryFields.filter(function (f) {
-      if (f.incidentOnly && !incident) return false;
-      if (f.identifiedOnly && !identified) return false;
-      if (f.need && !has(answers, f.need)) return false;
-      return true;
-    }).map(function (f) {
-      return {
-        node: f.node,
-        label: !incident && f.concernLabel ? f.concernLabel : f.label,
-        editable: true,
-        answer: answers[nodes[f.node].field]
-      };
+    var h = help(answers);
+    var rows = [["help", "How we can help"]];
+    if (h) {
+      var narrative = [NARRATIVE_NODE[h], NARRATIVE_LABEL[h]];
+      // Narrative first, except for an office request, where the office comes first as it was asked.
+      rows = rows.concat(h === "office" ? [BRANCH_ROWS.office[0], narrative].concat(BRANCH_ROWS.office.slice(1)) : [narrative].concat(BRANCH_ROWS[h]));
+    }
+    rows.push(["contact_want", "Contact you about this"]);
+    if (value(answers.contact_want) === "yes") {
+      rows.push(["contact_email", "Email"], ["contact_name", "Name"], ["contact_discreet", "OK to mention Pride Report"]);
+    }
+    if (needsConsent(answers)) {
+      rows.push(["consent", "May we contact others for you"]);
+      var ext = value(answers.external_contact);
+      if (ext === "anonymous" || ext === "named") rows.push(["consent_scope", "Who, and what we may share"]);
+    }
+    return rows.filter(function (r) {
+      // The "what happened when you contacted them" row only exists if they said yes.
+      return r[0] !== "b_summary" || value(answers.contacted) === "yes";
+    }).map(function (r) {
+      var answer = answers[nodes[r[0]].field];
+      // Permission to contact others is "no" until the student says otherwise.
+      if (r[0] === "consent" && !answer) answer = { value: "no", label: "No. Don’t contact anyone (default)" };
+      return { node: r[0], label: r[1], editable: true, answer: answer };
     });
   }
 
   function choice(ans) {
     if (!ans || ans.skipped) return null;
-    return ans.value === "other" ? { value: "other", text: ans.text } : { value: ans.value };
+    return ans.value === "other" && ans.text ? { value: "other", text: ans.text } : { value: ans.value };
   }
   function text(ans) { return ans && !ans.skipped && ans.text ? ans.text : null; }
+  function many(ans) { return ans && ans.values ? ans.values.slice() : []; }
 
-  /** The JSON document that is submitted. Skipped questions become null. */
+  /** The JSON document that is submitted. Only the chosen branch's answers are included. */
   function toReport(a) {
-    var identified = !!(a.contact_mode && a.contact_mode.value === "identified");
-    var incident = isIncident(a);
+    var h = help(a);
+    var yes = value(a.contact_want) === "yes";
+    var consent = needsConsent(a) ? (value(a.external_contact) || "no") : "no";
+    var is = function (branch) { return h === branch; };
     return {
-      version: 2,
-      needs: a.needs && a.needs.values ? a.needs.values.slice() : [],
-      advocate_consent: has(a, "advocate") ? choice(a.advocate_consent) : null,
-      office_which: has(a, "office") ? choice(a.office_which) : null,
-      support_kind: has(a, "support") ? choice(a.support_kind) : null,
-      conflict_with: has(a, "conflict") ? choice(a.conflict_with) : null,
-      conflict_contact: has(a, "conflict") ? choice(a.conflict_contact) : null,
-      path: a.path ? a.path.value : null,
-      category: choice(a.category),
-      what: text(a.what),
-      when: incident ? choice(a.when) : null,
-      where: choice(a.where),
-      who: incident ? choice(a.who) : null,
-      frequency: choice(a.frequency),
-      role: incident ? choice(a.role) : null,
-      reported: incident ? choice(a.reported) : null,
-      outcome: text(a.outcome),
-      timing: choice(a.timing),
-      anything_else: text(a.anything_else),
-      contact_mode: a.contact_mode ? a.contact_mode.value : null,
-      contact_name: identified ? text(a.contact_name) : null,
-      contact_method: identified ? text(a.contact_method) : null,
-      contact_discreet: identified ? choice(a.contact_discreet) : null
+      version: 3,
+      safe: value(a.safe),
+      help: h,
+      narrative: text(a.narrative),
+      categories: is("report") ? many(a.categories) : [],
+      where: is("report") ? choice(a.where) : null,
+      when: is("report") ? choice(a.when) : null,
+      frequency: is("report") ? choice(a.frequency) : null,
+      ongoing: is("report") ? choice(a.ongoing) : null,
+      wants: is("report") ? many(a.wants) : [],
+      office: is("office") ? choice(a.office) : null,
+      contacted: is("office") ? choice(a.contacted) : null,
+      contact_summary: is("office") && value(a.contacted) === "yes" ? text(a.contact_summary) : null,
+      assist: is("office") ? many(a.assist) : [],
+      deadline: is("office") || is("advocate") ? choice(a.deadline) : null,
+      peer_kind: is("peer") ? many(a.peer_kind) : [],
+      outcome: is("advocate") ? text(a.outcome) : null,
+      advocacy_kind: is("advocate") ? many(a.advocacy_kind) : [],
+      topic: is("info") ? choice(a.topic) : null,
+      next_steps: is("other") ? many(a.next_steps) : [],
+      contact_want: value(a.contact_want),
+      contact_email: yes ? text(a.contact_email) : null,
+      contact_name: yes ? text(a.contact_name) : null,
+      contact_discreet: yes ? choice(a.contact_discreet) : null,
+      external_contact: consent,
+      external_contact_scope: consent === "anonymous" || consent === "named" ? text(a.external_contact_scope) : null
     };
   }
 
-  /** Label for a stored choice value, used by the tracking page, emails and the dashboard. */
-  function labelFor(nodeId, value) {
-    if (value === null || value === undefined || value === "") return "Skipped";
-    if (Array.isArray(value)) {
-      return value.length ? value.map(function (v) { return labelFor(nodeId, v); }).join(", ") : "Nothing selected";
-    }
-    if (typeof value === "string") {
-      var opts = nodes[nodeId] && nodes[nodeId].options;
-      var hit = opts && opts.filter(function (o) { return o.value === value; })[0];
-      if (hit) return hit.label;
-      // "portal" is hidden from students in email mode but may still appear in stored reports.
-      return value === "portal" ? "Private follow-up on this site" : value;
-    }
-    if (value.value === "other") return value.text || "Other";
-    return labelFor(nodeId, value.value);
+  // Which question's options label each stored field.
+  var FIELD_NODE = {
+    safe: "intro", help: "help", categories: "a_categories", where: "a_where", when: "a_when", frequency: "a_frequency",
+    ongoing: "a_ongoing", wants: "a_wants", office: "b_office", contacted: "b_contacted", assist: "b_assist",
+    deadline: "b_deadline", peer_kind: "c_kind", advocacy_kind: "d_kind", topic: "e_topic", next_steps: "f_next",
+    contact_want: "contact_want", contact_discreet: "contact_discreet", external_contact: "consent"
+  };
+
+  /** Label for a stored value of a report field. */
+  function labelFor(field, stored) {
+    if (stored === null || stored === undefined || stored === "") return "";
+    if (Array.isArray(stored)) return stored.map(function (v) { return labelFor(field, v); }).join(", ");
+    if (typeof stored === "object") return stored.value === "other" && stored.text ? stored.text : labelFor(field, stored.value);
+    var node = nodes[FIELD_NODE[field]];
+    var hit = node && node.options.filter(function (o) { return o.value === stored; })[0];
+    return hit ? hit.label : String(stored).replace(/_/g, " ");
   }
 
+  /** Short dashboard name for each kind of help. */
+  var HELP_SHORT = {
+    report: "Incident report", office: "Help with University office", peer: "Peer support",
+    advocate: "Advocacy requested", info: "Information or resources", other: "Something else"
+  };
+
   /**
-   * A stored report as ordered [label, text] rows. One definition shared by the tracking page,
-   * the dashboard and the emailed copy, so they can never disagree.
+   * A stored report as ordered [label, text] rows, with unanswered questions left out. Used by the
+   * reviewer dashboard. Reports stored by the earlier version of the site are shown field by field.
    */
-  function describeReport(r, opts) {
+  function describeReport(r) {
     var rows = [];
-    var contact = !opts || opts.contact !== false;
-    function add(label, value) { if (value !== null && value !== undefined && value !== "") rows.push([label, value]); }
-    function pick(label, nodeId, value) { if (value) add(label, labelFor(nodeId, value)); }
-    var needs = r.needs || [];
-    add("What we can do for you", labelFor("needs", needs));
-    if (needs.indexOf("advocate") !== -1) pick("How to advocate", "advocate_consent", r.advocate_consent);
-    if (needs.indexOf("office") !== -1) pick("Office or service", "office_which", r.office_which);
-    if (needs.indexOf("support") !== -1) pick("Kind of support", "support_kind", r.support_kind);
-    if (needs.indexOf("conflict") !== -1) {
-      pick("Conflict with", "conflict_with", r.conflict_with);
-      pick("Involving the other person", "conflict_contact", r.conflict_contact);
+    function add(label, v) { if (v !== null && v !== undefined && v !== "") rows.push([label, v]); }
+    if (!r || r.version !== 3) {
+      Object.keys(r || {}).forEach(function (key) {
+        var v = r[key];
+        if (key === "version" || v === null || v === "" || (Array.isArray(v) && !v.length)) return;
+        var shown = Array.isArray(v) ? v.join(", ") : typeof v === "object" ? (v.value === "other" && v.text ? v.text : v.value) : v;
+        add(key.replace(/_/g, " ").replace(/^./, function (c) { return c.toUpperCase(); }), String(shown).replace(/_/g, " "));
+      });
+      return rows;
     }
-    pick("About", "path", r.path);
-    pick("Category", "category", r.category);
-    add(r.path === "concern" ? "What is going on" : "What happened", r.what);
-    pick("When", "when", r.when);
-    pick("Where", "where", r.where);
-    pick("Who was involved", "who", r.who);
-    pick("How often", "frequency", r.frequency);
-    pick("Connection to it", "role", r.role);
-    pick("Reported to the University", "reported", r.reported);
-    add("A good outcome", r.outcome);
-    pick("Deadline or date", "timing", r.timing);
-    add("Anything else", r.anything_else);
-    if (contact) {
-      pick("Submitted as", "contact_mode", r.contact_mode);
-      add("Name", r.contact_name);
-      add("Contact", r.contact_method);
-      pick("OK to mention Pride Report", "contact_discreet", r.contact_discreet);
-    }
+    add("Safe right now", labelFor("safe", r.safe));
+    add("How we can help", labelFor("help", r.help));
+    if (r.help === "office") add("Office or process", labelFor("office", r.office));
+    add(NARRATIVE_LABEL[r.help] || "In their words", r.narrative);
+    add("Categories", labelFor("categories", r.categories));
+    add("Where", labelFor("where", r.where));
+    add("When", labelFor("when", r.when));
+    add("How often", labelFor("frequency", r.frequency));
+    add("Still happening", labelFor("ongoing", r.ongoing));
+    add("What they want to happen", labelFor("wants", r.wants));
+    add("Already contacted the office", labelFor("contacted", r.contacted));
+    add("What happened when they did", r.contact_summary);
+    add("Outcome hoped for", r.outcome);
+    add("Deadline", labelFor("deadline", r.deadline));
+    add("Assistance that would help", labelFor("assist", r.assist));
+    add("Support wanted", labelFor("peer_kind", r.peer_kind));
+    add("What advocacy looks like", labelFor("advocacy_kind", r.advocacy_kind));
+    add("Topic", labelFor("topic", r.topic));
+    add("Next steps that might help", labelFor("next_steps", r.next_steps));
     return rows;
   }
 
-  // A rule-based safety net, not a risk assessment: when someone writes about self-harm we show crisis
-  // contacts immediately rather than waiting for a reviewer who may not read the report for days.
+  // Rule-based safety nets, not risk assessments. When a student writes about self-harm or a threat,
+  // the page shows who to call at once instead of leaving it for a reviewer to find days later.
   var crisisPattern = /\b(kill(ing)? myself|suicid(e|al)|end(ing)? my (own )?life|hurt(ing)? myself|harm(ing)? myself|self[- ]harm|don'?t want to (live|be alive|be here anymore)|want to die)\b/i;
+  var dangerPattern = /\b(threaten(ed|ing|s)? to (hurt|kill|beat|attack)|going to (hurt|kill|attack) (me|us|them|him|her)|afraid for my (life|safety)|fear for my (life|safety)|(has|had|have|with) a (gun|knife|weapon)|stalking me|following me home)\b/i;
   function detectCrisis(str) { return crisisPattern.test(String(str || "")); }
 
+  /** "crisis", "danger" or null for an answer just given. */
+  function alertFor(node, answer) {
+    if (!answer || answer.skipped) return null;
+    if (answer.text && detectCrisis(answer.text)) return "crisis";
+    if (answer.text && dangerPattern.test(answer.text)) return "danger";
+    if (node && node.field === "categories" && picked(answer, "safety")) return "danger";
+    return null;
+  }
+
   return {
-    start: "welcome",
-    totalSteps: 17,
+    start: "intro",
+    totalSteps: 4,
     maxLength: 4000,
     nodes: nodes,
     context: context,
-    helpNeeds: HELP_NEEDS,
-    wantsHelp: wantsHelp,
+    branchStart: BRANCH_START,
+    needsConsent: needsConsent,
+    needsReply: needsReply,
     summary: summary,
     toReport: toReport,
     labelFor: labelFor,
+    helpShort: HELP_SHORT,
     describeReport: describeReport,
     detectCrisis: detectCrisis,
+    alertFor: alertFor,
     statuses: {
-      received: { label: "Received", detail: "The system stored the report." },
-      under_review: { label: "Under review", detail: "An authorized reviewer has opened it." },
-      response_available: { label: "Response available", detail: "A reviewer has added a message or resource." },
-      closed: { label: "Closed", detail: "Student-led review is complete. This does not mean the University resolved the underlying concern." }
+      "new": "New",
+      in_review: "In review",
+      awaiting_follow_up: "Awaiting follow-up",
+      closed: "Closed"
     }
   };
 });

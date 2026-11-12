@@ -1,4 +1,10 @@
-/* Pride Guide chat UI. Renders the engine's current node and feeds answers back into it. */
+/* Pride Guide chat UI. Renders the engine's current node and feeds answers back into it.
+ *
+ * Two states:
+ *   open     submissions go to the server, and success is shown only after the server confirms it
+ *   closed   the page explains that intake is not open; a preview walks through the questions and
+ *            ends with "nothing was sent or saved". There is no fake receipt.
+ */
 (function () {
   "use strict";
   var PR = window.PR;
@@ -6,12 +12,15 @@
   var flow = PR.flow;
   var store = PR.store;
   var cfg = window.PR_CONFIG || {};
-  var DRAFT_KEY = "pride-report-draft-v2";
+  var DRAFT_KEY = "pride-report-draft-v3";
+  var open = store.isOpen();
 
-  flow.context.mode = store.mode;
-  flow.context.tracking = store.tracking;
-  flow.context.expectation = cfg.REVIEW_EXPECTATION || "";
+  flow.context.preview = !open;
+  flow.context.policy = cfg.POLICY || {};
+  flow.context.services = cfg.SERVICES || flow.context.services;
 
+  var chat = document.getElementById("chat");
+  var closedPanel = document.getElementById("closed");
   var log = document.getElementById("log");
   var optionsBox = document.getElementById("options");
   var input = document.getElementById("composer-input");
@@ -28,28 +37,24 @@
   var stageList = document.getElementById("stage-list");
 
   // The five parts of the conversation, used for the progress label and the desktop sidebar.
-  var STAGES = [
-    { name: "What you need", from: 2 },
-    { name: "What happened", from: 4 },
-    { name: "What you’d like to see", from: 13 },
-    { name: "How to reach you", from: 16 },
-    { name: "Review and submit", from: 17 }
-  ];
+  var STAGES = ["Safety check", "How we can help", "Your situation", "Contact and privacy", "Review and submit"];
 
   var startedAt = Date.now();
-  var crisisShown = false;
+  var alertsShown = {};
   var multiPicked = [];
 
   // The draft lives in sessionStorage so a refresh doesn't lose the conversation, and closing the tab does.
   var saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { saved = null; }
-  var engine = PR.engine.createEngine(flow, saved);
+  var engine = PR.engine.createEngine(flow, saved && saved.state);
+  // One key per report. A retry after a dropped connection reuses it, so it can't create a duplicate.
+  var idem = (saved && saved.idem) || store.newIdempotencyKey();
 
   function persist() {
     try {
       if (engine.node.type === "end") sessionStorage.removeItem(DRAFT_KEY);
-      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(engine.snapshot()));
-    } catch (e) { /* private mode: the draft simply won't survive a refresh */ }
+      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ state: engine.snapshot(), idem: idem }));
+    } catch (e) { /* private browsing: the draft simply won't survive a refresh */ }
   }
 
   function scrollToEnd() {
@@ -66,6 +71,9 @@
   function linkRow(links) {
     if (!links || !links.length) return;
     log.appendChild(el("div", { class: "chips link-row" }, links.map(function (l) {
+      if (l.action === "exit") {
+        return el("button", { class: "btn btn-danger btn-sm", type: "button", text: l.label, onclick: PR.quickExit });
+      }
       return el("a", {
         class: "btn btn-ghost btn-sm", href: l.href,
         target: l.newTab ? "_blank" : null, rel: l.newTab ? "noopener" : null,
@@ -74,39 +82,42 @@
     })));
   }
 
-  function showCrisisCard() {
-    if (crisisShown) return;
-    crisisShown = true;
-    log.appendChild(el("div", { class: "bubble urgent fresh", role: "note" }, [
-      el("strong", { text: "You mentioned something that sounds really heavy. " }),
-      "I’m an automated tool and nobody is reading this live. If you’re thinking about harming yourself, you can reach a person right now: call or text ",
-      el("a", { href: "tel:988", text: "988" }),
-      ", or reach The Trevor Project at ",
-      el("a", { href: "tel:+18664887386", text: "1-866-488-7386" }),
-      ". If you’re in immediate danger, call University Public Safety at ",
-      el("a", { href: "tel:+12039327070", text: "(203) 932-7070" }),
-      " or ",
-      el("a", { href: "tel:911", text: "911" }),
-      ". You can keep going whenever you’re ready."
-    ]));
+  function resourceCards(topic) {
+    var list = PR.resources.forTopic(topic);
+    if (!list.length) return null;
+    return el("div", { class: "cards" }, list.map(PR.resourceCard));
+  }
+
+  // Shown at once when an answer mentions self-harm or a threat. Each kind is shown only once.
+  function showAlert(kind) {
+    if (!kind || alertsShown[kind]) return;
+    alertsShown[kind] = true;
+    var safety = [
+      "University Public Safety at ", el("a", { href: "tel:+12039327070", text: "(203) 932-7070" }),
+      ", or ", el("a", { href: "tel:911", text: "911" })
+    ];
+    var body = kind === "crisis"
+      ? [el("strong", { text: "You mentioned something that sounds really heavy. " }),
+        "This is an automated tool and nobody is reading it live. If you are thinking about harming yourself, you can reach a person right now: call or text ",
+        el("a", { href: "tel:988", text: "988" }), ". If you are in immediate danger, call "].concat(safety, [". You can keep going whenever you’re ready."])
+      : [el("strong", { text: "If anyone is in danger right now, don’t wait for us. " }),
+        "This is an automated tool, nobody is reading it live, and it can’t send help. Call "].concat(safety, [". You can keep going with this whenever you’re ready."]);
+    log.appendChild(el("div", { class: "bubble urgent fresh", role: "alert" }, body));
   }
 
   function setProgress() {
-    var step = engine.node.step || 0;
+    var node = engine.node;
+    var step = node.step || 0;
     var pct = Math.round((step / flow.totalSteps) * 100);
     bar.style.width = pct + "%";
     progress.setAttribute("aria-valuenow", String(pct));
-
-    var current = -1;
-    STAGES.forEach(function (s, i) { if (step >= s.from) current = i; });
-    if (engine.node.type === "end") current = engine.node.receipt ? STAGES.length : -1;
-    stageLabel.textContent = current < 0 ? "Getting started"
-      : current >= STAGES.length ? "Submitted"
-      : "Part " + (current + 1) + " of " + STAGES.length + ": " + STAGES[current].name;
+    var done = node.type === "end";
+    stageLabel.textContent = done ? (node.receipt ? "Finished" : "Ended without sending")
+      : "Part " + (step + 1) + " of " + STAGES.length + ": " + STAGES[step];
     if (stageList) {
       Array.prototype.forEach.call(stageList.children, function (li, i) {
-        li.className = i < current ? "done" : i === current ? "now" : "";
-        if (i === current) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+        li.className = done && node.receipt ? "done" : i < step ? "done" : i === step && !done ? "now" : "";
+        if (i === step && !done) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
       });
     }
   }
@@ -117,10 +128,11 @@
 
   function give(answer, shownText) {
     var before = engine.id;
+    var node = engine.node;
     var result = engine.answer(answer);
     if (!result.ok) return false;
     bubble(shownText || PR.engine.describe(answer), "user");
-    if (answer.text && flow.detectCrisis(answer.text)) showCrisisCard();
+    showAlert(flow.alertFor(node, answer));
     render(before);
     return true;
   }
@@ -128,9 +140,10 @@
   function nudge(error, max) {
     var messages = {
       choose_option: "Please choose one of the options above.",
-      too_long: "That’s longer than I can accept here (" + max + " characters). Could you shorten it?",
-      required: "Please choose at least one option to continue.",
-      empty: "Type an answer first, or choose Skip."
+      too_long: "That is longer than I can accept here (" + max + " characters). Could you shorten it?",
+      required: "Please choose an option to continue.",
+      empty: "Type an answer first, or choose Skip.",
+      invalid_format: "That doesn’t look like an email address. Please check it, or go back and choose No."
     };
     bubble(messages[error] || messages.choose_option, "note");
     scrollToEnd();
@@ -154,12 +167,16 @@
   }
 
   function renderChoice(node) {
-    optionsBox.appendChild(el("div", { class: "chips", role: "group", "aria-label": "Answer options" },
+    var described = node.options.some(function (o) { return o.desc; });
+    optionsBox.appendChild(el("div", { class: described ? "choices" : "chips", role: "group", "aria-label": "Answer options" },
       node.options.map(function (o) {
-        return el("button", {
-          class: "chip", type: "button", text: o.label,
-          onclick: function () { give({ value: o.value, label: o.label }); }
-        });
+        var pick = function () { give({ value: o.value, label: o.label }); };
+        if (!described) return el("button", { class: "chip", type: "button", text: o.label, onclick: pick });
+        // The description is part of the button, so screen readers announce it with the choice.
+        return el("button", { class: "choice" + (o.primary ? " choice-primary" : ""), type: "button", onclick: pick }, [
+          el("span", { class: "choice-title", text: o.label }),
+          el("span", { class: "choice-desc", text: o.desc })
+        ]);
       })
     ));
   }
@@ -195,25 +212,18 @@
     optionsBox.appendChild(el("div", { class: "chips" }, [done]));
   }
 
-  function consentShareText() {
-    if (store.mode === "demo") return "I understand this is a demo: my answers stay in this browser and no reviewer will see them.";
-    if (store.mode === "email") {
-      return "I agree that what I wrote above will be emailed to the Pride Report reviewers and read by trained student reviewers. " + (cfg.REVIEW_EXPECTATION || "");
-    }
-    return "I agree that trained student reviewers may read what I wrote above. " + (cfg.REVIEW_EXPECTATION || "");
-  }
-
   function renderReview() {
-    var rows = flow.summary(engine.answers).map(function (row) {
+    var a = engine.answers;
+    var rows = flow.summary(a).map(function (row) {
       var text = PR.engine.describe(row.answer);
-      var empty = !row.answer || row.answer.skipped;
+      var empty = !row.answer || row.answer.skipped || !text;
       return el("div", { class: "review-row" }, [
         el("dt", { text: row.label }),
         el("dd", { class: empty ? "empty" : null, text: empty ? "Skipped" : text }),
-        row.editable ? el("button", {
+        el("button", {
           class: "btn btn-quiet btn-sm", type: "button", "aria-label": "Change " + row.label, text: "Change",
           onclick: function () { if (engine.edit(row.node)) { bubble("Change: " + row.label, "user"); render(null); } }
-        }) : null
+        })
       ]);
     });
 
@@ -221,36 +231,41 @@
     var c2 = el("input", { type: "checkbox", id: "consent-share" });
     var honeypot = el("input", { type: "text", name: "website", tabindex: "-1", autocomplete: "off" });
     var error = el("p", { class: "error", role: "alert" });
-    var label = store.isDemo ? "Submit demo report" : "Submit";
+    var label = open ? "Submit" : "Finish preview (nothing is sent)";
     var submit = el("button", { class: "btn btn-lg", type: "button", text: label });
 
     var warning = null;
-    var a = engine.answers;
-    if (flow.wantsHelp(a) && a.contact_mode && a.contact_mode.value === "anonymous") {
+    if (flow.needsReply(a) && a.contact_want && a.contact_want.value === "no") {
       warning = el("div", { class: "callout callout-warn" }, el("p", {
-        text: "You asked for help but chose to submit anonymously, so reviewers will have no way to reach you. That is OK if it is what you want. To get a reply, change “How you’re submitting” above."
+        text: "You asked for help that needs a reply, but chose not to be contacted, so reviewers will have no way to reach you. That is OK if it is what you want. To hear back, change “Contact you about this” above."
       }));
     }
 
     submit.addEventListener("click", function () {
       error.textContent = "";
       if (!c1.checked || !c2.checked) {
-        error.textContent = "Please confirm both statements before submitting.";
+        error.textContent = "Please confirm both statements first.";
+        return;
+      }
+      var report = flow.toReport(engine.answers);
+      if (!open) {
+        engine.answer({ confirmed: true });
+        bubble("Finish preview", "user");
+        render(null, null, report);
         return;
       }
       submit.disabled = true;
       submit.textContent = "Submitting…";
-      var report = flow.toReport(engine.answers);
-      store.submit(report, { hp: honeypot.value, elapsed_ms: Date.now() - startedAt }).then(function (receipt) {
+      store.submit(report, { hp: honeypot.value, elapsed_ms: Date.now() - startedAt }, idem).then(function (receipt) {
         engine.answer({ confirmed: true });
         bubble("Submit", "user");
         render(null, receipt, report);
       }).catch(function (err) {
         submit.disabled = false;
         submit.textContent = label;
-        error.textContent = err && err.status === 429 && store.mode === "backend"
-          ? "Too many reports have come from this connection recently. Please try again later. Your answers are still here."
-          : "This could not be submitted, and nothing was sent. Please check your connection and try again. Your answers are still here.";
+        error.textContent = err && err.status === 429
+          ? "Too many submissions have come from this connection recently, so this was not sent. Please try again later. Your answers are still here."
+          : "This was not submitted, and we could not confirm that anything was saved. Please check your connection and press Submit again. Your answers are still here, and pressing Submit twice cannot create a duplicate.";
       });
     });
 
@@ -259,9 +274,13 @@
       warning,
       el("div", { class: "consent" }, [
         el("label", { class: "check", for: "consent-unofficial" }, [c1, el("span", {
-          text: "I understand this is not an official University report, and that submitting here does not notify the University or start any University process."
+          text: "I understand this is not an official University report, and that sending it does not notify the University or start any University process."
         })]),
-        el("label", { class: "check", for: "consent-share" }, [c2, el("span", { text: consentShareText() })]),
+        el("label", { class: "check", for: "consent-share" }, [c2, el("span", {
+          text: open
+            ? "I have read how my information is handled, and I agree that the student reviewers may read what I wrote above."
+            : "I understand this is a preview: nothing above will be sent, saved or read by anyone."
+        })]),
         el("label", { class: "hp", "aria-hidden": "true" }, ["Leave this field empty", honeypot])
       ]),
       error,
@@ -269,83 +288,70 @@
     ]));
   }
 
-  function resourceCard(r) {
-    return el("div", { class: "card resource" }, [
-      el("span", { class: "tag" + (r.tone === "official" ? " tag-official" : r.tone === "urgent" ? " tag-urgent" : ""), text: r.tag }),
-      el("h3", { text: r.name }),
-      el("p", { text: r.what }),
-      el("ul", { class: "resource-contacts" }, r.contacts.map(function (c) {
-        return el("li", null, [c.label + ": ", el("a", { href: c.href, text: c.text, rel: /^https:/.test(c.href) ? "noopener" : null })]);
-      }))
-    ]);
+  function emergencyNote() {
+    var p = PR.emergencyLine();
+    p.className = "small muted";
+    return p;
   }
 
-  function copyButton(text, status) {
-    return el("button", {
-      class: "btn btn-sm", type: "button", text: "Copy",
-      onclick: function () {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(function () { status.textContent = "Copied."; },
-            function () { status.textContent = "Couldn’t copy. Please write it down."; });
-        } else {
-          status.textContent = "Select the code above and copy it.";
-        }
-      }
-    });
+  function renderPreviewEnd() {
+    optionsBox.appendChild(el("div", { class: "callout callout-warn" }, [
+      el("h3", { text: "Preview complete" }),
+      el("p", { text: "Nothing was sent or saved, and no one will read what you typed. Pride Report is not accepting submissions yet." }),
+      el("p", { text: "If something has happened and you need help now, the Resources page lists people you can contact, including the official University routes." }),
+      el("div", { class: "chips" }, [
+        el("a", { class: "btn btn-sm", href: "resources.html", text: "Open Resources" }),
+        el("button", { class: "btn btn-ghost btn-sm", type: "button", text: "Start again", onclick: restart })
+      ])
+    ]));
+    optionsBox.appendChild(emergencyNote());
   }
 
   function renderReceipt(receipt, report) {
     var copied = el("span", { class: "small muted", role: "status" });
-    var category = report && report.category ? report.category.value : "other";
-    var identified = report && report.contact_mode === "identified";
-    var hasCode = !!receipt.code;
+    var policy = cfg.POLICY || {};
+    var when = receipt.received_at ? PR.formatDate(receipt.received_at) : null;
 
     optionsBox.appendChild(el("div", { class: "card receipt" }, [
-      el("p", { class: "label", text: store.isDemo ? "Demo access code" : hasCode ? "Your private access code" : "Your reference number" }),
-      el("div", { class: "code", id: "access-code", text: receipt.code || receipt.id }),
+      el("p", { class: "label", text: "Received. Your reference number" }),
+      el("div", { class: "code", id: "reference", text: receipt.id }),
       el("div", { class: "chips no-print" }, [
-        copyButton(receipt.code || receipt.id, copied),
+        el("button", {
+          class: "btn btn-sm", type: "button", text: "Copy",
+          onclick: function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(receipt.id).then(function () { copied.textContent = "Copied."; },
+                function () { copied.textContent = "Couldn’t copy. Please write it down."; });
+            } else {
+              copied.textContent = "Select the number above and copy it.";
+            }
+          }
+        }),
         el("button", { class: "btn btn-ghost btn-sm", type: "button", text: "Print or save as PDF", onclick: function () { window.print(); } }),
         copied
       ]),
-      hasCode
-        ? el("p", { class: "small" }, [
-          el("strong", { text: "Keep this code somewhere private. " }),
-          "It is the only way to open this report again, and it can’t be recovered if you lose it. Reference number for reviewers: " + receipt.id + "."
-        ])
-        : el("p", { class: "small" }, [
-          el("strong", { text: "Your report was sent. " }),
-          "Keep this reference number. If you contact Pride Report again about this, quoting it helps reviewers find your report."
-        ])
-    ]));
-
-    var nextText;
-    if (store.isDemo) {
-      nextText = "Nothing: this was a demo, so no one received your report. You can open the tracking page with the code above, or the demo reviewer dashboard, to see how the rest would work.";
-    } else if (hasCode) {
-      nextText = (cfg.REVIEW_EXPECTATION || "A trained student reviewer will read your report.") + " Check back on the My report page with your code.";
-    } else if (identified) {
-      nextText = (cfg.REVIEW_EXPECTATION || "A trained student reviewer will read your report.") + " A reviewer will reach you using the contact details you gave.";
-    } else {
-      nextText = (cfg.REVIEW_EXPECTATION || "A trained student reviewer will read your report.") + " Because you submitted anonymously, reviewers can’t reply to you. If you want a reply later, you can submit again and share a way to reach you.";
-    }
-
-    optionsBox.appendChild(el("div", { class: "callout" }, [
-      el("h3", { text: "What happens next" }),
-      el("p", { text: nextText }),
-      el("p", { text: "Pride Report has not notified the University. If you want an official response, the routes below are how to ask for one." }),
-      el("div", { class: "chips no-print" }, [
-        hasCode ? el("a", { class: "btn btn-sm", href: "track.html", text: "Open My report" }) : null,
-        store.isDemo ? el("a", { class: "btn btn-ghost btn-sm", href: "admin/index.html", text: "See the demo dashboard" }) : null,
-        el("a", { class: "btn btn-ghost btn-sm", href: "index.html", text: "Back to home" })
+      el("p", { class: "small" }, [
+        el("strong", { text: "Our server confirmed that your submission was stored" + (when ? " on " + when : "") + ". " }),
+        "This number is a receipt, not a password. It can’t be used to open or change what you sent. Quote it if you write to us about this."
       ])
     ]));
 
-    optionsBox.appendChild(el("h3", { text: "Options that may be relevant" }));
-    optionsBox.appendChild(el("div", { class: "cards" }, PR.resources.forCategory(category).map(resourceCard)));
-    var emergency = PR.emergencyLine();
-    emergency.className = "small muted";
-    optionsBox.appendChild(emergency);
+    var contact = report.contact_want === "yes"
+      ? "If a reviewer follows up, it will be by email to the address you gave."
+      : "You chose not to be contacted, so you will not hear from us about this.";
+    optionsBox.appendChild(el("div", { class: "callout" }, [
+      el("h3", { text: "What happens next" }),
+      el("p", { text: "Received does not mean read. Reviewers read submissions " + policy.REVIEW_HOURS + ", and a first response usually comes " + policy.RESPONSE_TIME + ". " + contact }),
+      el("p", { text: "Pride Report has not told the University, and will not contact anyone on your behalf unless you gave that permission. If you want an official response, the routes below are how to ask for one." }),
+      el("div", { class: "chips no-print" }, [el("a", { class: "btn btn-ghost btn-sm", href: "index.html", text: "Back to home" })])
+    ]));
+
+    var cards = resourceCards(PR.resources.topicForReport(report));
+    if (cards) {
+      optionsBox.appendChild(el("h3", { text: "Resources that may be relevant" }));
+      optionsBox.appendChild(cards);
+    }
+    optionsBox.appendChild(emergencyNote());
   }
 
   function render(previousId, receipt, report) {
@@ -354,16 +360,25 @@
     engine.lines().forEach(function (line) { bubble(line, node.tone === "urgent" ? "urgent" : null); });
     linkRow(node.links);
 
+    // Resource cards that belong to this step of the conversation.
+    var topic = typeof node.resources === "function" ? node.resources(engine.answers) : node.showResources;
+    if (topic) {
+      var cards = resourceCards(topic);
+      if (cards) log.appendChild(cards);
+    }
+
     var typing = node.type === "text" || (node.type === "choice" && node.allowText);
-    composer.hidden = node.type === "end" || node.type === "review" || node.type === "multi" || !typing && !node.optional;
+    composer.hidden = node.type === "end" || node.type === "review" || node.type === "multi" || (!typing && !node.optional);
     input.disabled = !typing;
     sendBtn.disabled = !typing;
     input.hidden = !typing;
     sendBtn.hidden = !typing;
     input.placeholder = node.placeholder || "Or type your own answer";
+    input.setAttribute("inputmode", node.inputType === "email" ? "email" : "text");
+    input.setAttribute("autocapitalize", node.inputType === "email" ? "none" : "sentences");
     skipBtn.hidden = !node.optional;
     hint.textContent = node.type === "text"
-      ? "Enter sends. Shift + Enter adds a new line."
+      ? (node.multiline ? "Enter sends. Shift + Enter adds a new line." : "Press Enter to send.")
       : typing ? "Choose an option above, or type your own." : "";
     backBtn.disabled = !engine.canGoBack || node.type === "end";
     counter.textContent = "";
@@ -372,11 +387,13 @@
     else if (node.type === "multi") renderMulti(node);
     else if (node.type === "review") renderReview();
     else if (node.type === "end" && node.receipt && receipt) renderReceipt(receipt, report);
+    else if (node.type === "end" && node.receipt) renderPreviewEnd();
     else if (node.type === "end") {
       optionsBox.appendChild(el("div", { class: "chips" }, [
         el("button", { class: "btn btn-sm", type: "button", text: "Start again", onclick: restart }),
         el("a", { class: "btn btn-ghost btn-sm", href: "index.html", text: "Back to home" })
       ]));
+      optionsBox.appendChild(emergencyNote());
     }
 
     setProgress();
@@ -391,10 +408,18 @@
 
   function restart() {
     engine.reset();
-    crisisShown = false;
+    alertsShown = {};
     startedAt = Date.now();
+    idem = store.newIdempotencyKey();
     while (log.firstChild) log.removeChild(log.firstChild);
     render(null);
+  }
+
+  function start(focus) {
+    closedPanel.hidden = true;
+    chat.hidden = false;
+    if (saved && engine.canGoBack) bubble("Welcome back. I’ve kept your answers from before you refreshed this tab.", "note");
+    render(focus ? null : undefined);
   }
 
   sendBtn.addEventListener("click", onSend);
@@ -411,6 +436,12 @@
     restart();
   });
 
-  if (saved && engine.canGoBack) bubble("Welcome back. I’ve kept your answers from before you refreshed this tab.", "note");
-  render();
+  if (open || (saved && saved.state)) {
+    start(false);
+  } else {
+    // Intake is closed: say so plainly, and only start the preview if the visitor asks for it.
+    chat.hidden = true;
+    closedPanel.hidden = false;
+    document.getElementById("start-preview").addEventListener("click", function () { start(true); });
+  }
 })();

@@ -20,5 +20,8 @@ trap cleanup EXIT
 psql=("$bindir/psql" -h "$work" -p "$port" -U postgres -d postgres -v ON_ERROR_STOP=1 -q)
 "${psql[@]}" -f "$here/local_stub.sql"
 "${psql[@]}" -f "$root/supabase/migrations/0001_init.sql"
+# Data in the shape the first version stored, so the upgrade path is tested, not just a fresh install.
+"${psql[@]}" -o /dev/null -f "$here/legacy_seed.sql"
+"${psql[@]}" -f "$root/supabase/migrations/0002_dashboard_outbox.sql"
 # Query results are discarded; each check prints an "ok" notice or aborts the run.
 "${psql[@]}" -o /dev/null -f "$here/schema_test.sql" 2>&1 | sed -E "s/^psql:[^ ]+ NOTICE:  //"

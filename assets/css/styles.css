@@ -456,7 +456,8 @@ th { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color
   border: 1px solid var(--line); background: var(--surface); color: var(--ink);
   border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 0.92rem; cursor: pointer;
 }
-.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tabs button[aria-selected="true"], .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tabs button { min-height: 40px; }
 .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px; margin: 0 0 16px; }
 .kv dt { color: var(--muted); font-size: 0.88rem; }
 .kv dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -464,6 +465,58 @@ th { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color
 .bar { height: 14px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
 .bar > div { height: 100%; background: var(--primary); border-radius: 4px; }
 .bar-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+
+
+/* ---------- "How can we help?" choices ---------- */
+.choices { display: grid; gap: 10px; }
+.choice {
+  display: grid; gap: 2px; text-align: left; width: 100%;
+  padding: 14px 18px; border-radius: var(--radius); min-height: 60px;
+  border: 1.5px solid var(--primary); background: var(--surface); color: var(--ink);
+  font: inherit; cursor: pointer;
+}
+button.choice:hover { background: var(--primary-soft); }
+.choice-title { font-weight: 700; color: var(--primary); }
+.choice-desc { font-size: 0.92rem; color: var(--muted); }
+/* The first choice is filled so it reads as the primary action. The others are no less available. */
+.choice-primary { background: var(--primary); border-color: var(--primary); }
+.choice-primary .choice-title { color: var(--primary-ink); }
+.choice-primary .choice-desc { color: var(--primary-ink); opacity: 0.9; }
+button.choice-primary:hover { background: var(--primary); box-shadow: 0 4px 14px rgba(74, 42, 138, 0.3); }
+.preview .choice { min-height: 0; padding: 10px 14px; }
+.card-primary { background: var(--primary) !important; border-color: var(--primary); color: var(--primary-ink); }
+.card-primary h3, .card-primary p { color: var(--primary-ink); }
+#log > .cards { align-self: stretch; }
+
+/* ---------- Closed state, policy placeholders ---------- */
+.closed-preview { margin-top: 18px; }
+.closed-preview h2 { font-size: 1.3rem; }
+.tbc { font-weight: 700; background: var(--warn-soft); color: var(--warn-ink); padding: 1px 6px; border-radius: 5px; }
+.resource-search { margin-top: 22px; }
+.resource-search .tabs { margin-bottom: 8px; }
+.btn-danger:hover { box-shadow: none; background: var(--danger-soft); }
+
+/* ---------- Dashboard ---------- */
+.auth-card { max-width: 460px; margin: 0 auto; }
+.auth-card h2 { font-size: 1.5rem; }
+.qr { display: block; background: #fff; border-radius: 8px; padding: 8px; margin: 0 0 12px; }
+.dash-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.dash-bar p { margin: 0; }
+.case-controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-bottom: 8px; }
+.flags { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.inbox .flags { grid-column: 1 / -1; }
+.inbox button[disabled] { cursor: not-allowed; opacity: 0.6; }
+.badge-danger { background: var(--danger-soft); color: var(--danger); }
+.badge-advocacy { background: var(--primary); color: var(--primary-ink); }
+.badge-deadline { background: var(--warn-soft); color: var(--warn-ink); }
+.badge-ok { background: var(--ok-soft); color: var(--ok); }
+ul.plain { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; }
+.panel-body details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.panel-body summary { cursor: pointer; font-weight: 650; min-height: 32px; }
+.panel-body .callout { margin: 12px 0; }
+.panel-body .callout h3 { margin-top: 0; }
+.callout .kv { margin-bottom: 8px; }
+code { font-family: var(--mono); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; overflow-wrap: anywhere; }
 
 /* ---------- Footer ---------- */
 .site-footer { margin-top: 40px; background: var(--surface); border-top: 1px solid var(--line); font-size: 0.9rem; color: var(--muted); }

@@ -3,49 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
-  <title>My report | UNewHaven Pride Report</title>
+  <title>Earlier access codes | UNewHaven Pride Report</title>
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body data-page="track" data-root="">
 <main id="main">
   <div class="wrap narrow page-head">
-    <p class="eyebrow">My report</p>
-    <h1>Check on a report</h1>
-    <p class="lede">Enter the private access code you were given when you submitted. You don’t need to say who you are.</p>
+    <p class="eyebrow">Earlier access codes</p>
+    <h1>Have an access code from before?</h1>
+    <p class="lede">An earlier version of this site gave some students a private access code. If you have one, you can still use it here. New submissions get a reference number instead, which is a receipt and can’t be used to open anything.</p>
   </div>
 
   <div class="wrap narrow">
-    <div class="callout" data-show="email">
-      <p><strong>Online tracking isn’t switched on.</strong> Reports are currently delivered to reviewers by email. If you shared a way to reach you, a reviewer will use it. If you submitted anonymously, reviewers can’t reply, but you can <a href="report.html">submit again</a> and share contact details.</p>
-    </div>
-
-    <form id="lookup" class="card" novalidate data-show="demo backend">
+    <form id="lookup" class="card" novalidate>
       <div class="field">
         <label for="code">Access code</label>
         <input id="code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PR-XXXX-XXXX-XXXX" aria-describedby="code-help code-error">
         <p class="help" id="code-help">Dashes, spaces and lower case are fine. The code is never placed in the page address.</p>
         <p class="error" id="code-error" role="alert"></p>
       </div>
-      <button class="btn" type="submit" id="lookup-btn">Open report</button>
+      <button class="btn" type="submit" id="lookup-btn">Open</button>
     </form>
 
     <div id="result" aria-live="polite"></div>
 
-    <noscript><div class="callout callout-warn"><p>This page needs JavaScript to look up a report.</p></div></noscript>
-
-    <p class="small muted" data-show="demo backend">Lost your code? Anonymous reports can’t be recovered without it. That is what keeps them from being tied to you. You can always <a href="report.html">submit again</a>.</p>
+    <noscript><div class="callout callout-warn"><p>This page needs JavaScript.</p></div></noscript>
   </div>
 </main>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/store.js"></script>
-<script src="assets/js/common.js"></script>
 <script src="assets/js/resources-data.js"></script>
+<script src="assets/js/common.js"></script>
 <script src="assets/js/engine.js"></script>
 <script src="assets/js/flow.js"></script>
 <script src="assets/js/track-page.js"></script>

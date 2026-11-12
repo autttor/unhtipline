@@ -1,95 +1,119 @@
-// The browser script (flow.js) and the server validator (validate.ts) each list the allowed answers.
-// These tests fail if the two drift apart.
+// Checks that hold across files: the browser script and the server validator agree, the public site
+// carries no secrets or third-party requests, and house rules (no em dashes, Public Safety before
+// 911, no telephony) are kept.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { engineLib, flow, resources, reply, incidentToReview, root } from "./helpers.js";
-import { ALLOWED, FREE_TEXT_CHOICES, HELP_NEEDS, LIMITS, CODE_ALPHABET, validateReport, reportToText } from "../supabase/functions/_shared/validate.ts";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { flow, resources, root } from "./helpers.js";
+import { ALLOWED, BRANCH_FIELDS, MULTI_FIELDS, FREE_TEXT_CHOICES, LIMITS, CODE_ALPHABET, HELP_LABELS } from "../supabase/functions/_shared/validate.ts";
+
+const nodesFor = (field) => Object.values(flow.nodes).filter((n) => n.field === field && n.options);
 
 test("option values match the server's allow-list", () => {
   for (const field of Object.keys(ALLOWED)) {
-    assert.ok(flow.nodes[field], `flow.js has no "${field}" question`);
-    assert.deepEqual(flow.nodes[field].options.map((o) => o.value).sort(), [...ALLOWED[field]].sort(), field);
+    const nodes = nodesFor(field);
+    assert.ok(nodes.length, `flow.js has no question for "${field}"`);
+    for (const node of nodes) assert.deepEqual(node.options.map((o) => o.value).sort(), [...ALLOWED[field]].sort(), field);
   }
-  assert.deepEqual([...flow.helpNeeds], [...HELP_NEEDS]);
 });
 
-test("free-text rules and length limits match", () => {
-  const typed = Object.entries(flow.nodes).filter(([, n]) => n.type === "choice" && n.allowText).map(([id]) => id);
+test("branches, multi-select questions, free-text rules and length limits match", () => {
+  assert.deepEqual(Object.keys(BRANCH_FIELDS).sort(), [...ALLOWED.help].sort());
+  assert.deepEqual(Object.keys(flow.branchStart).sort(), [...ALLOWED.help].sort());
+  assert.deepEqual(Object.keys(HELP_LABELS).sort(), Object.keys(flow.helpShort).sort());
+
+  const multi = [...new Set(Object.values(flow.nodes).filter((n) => n.type === "multi").map((n) => n.field))];
+  assert.deepEqual(multi.sort(), [...MULTI_FIELDS].sort());
+  const typed = [...new Set(Object.values(flow.nodes).filter((n) => n.type === "choice" && n.allowText).map((n) => n.field))];
   assert.deepEqual(typed.sort(), [...FREE_TEXT_CHOICES].sort());
-  for (const id of typed) assert.equal(flow.nodes[id].maxLength, LIMITS.choiceText, id);
+  for (const node of Object.values(flow.nodes)) if (node.type === "choice" && node.allowText) assert.equal(node.maxLength, LIMITS.choiceText);
+
   assert.equal(flow.maxLength, LIMITS.longText);
-  assert.equal(flow.nodes.outcome.maxLength, LIMITS.outcome);
+  assert.equal(flow.nodes.d_outcome.maxLength, LIMITS.mediumText);
+  assert.equal(flow.nodes.b_summary.maxLength, LIMITS.mediumText);
+  assert.equal(flow.nodes.consent_scope.maxLength, LIMITS.scope);
   assert.equal(flow.nodes.contact_name.maxLength, LIMITS.name);
-  assert.equal(flow.nodes.contact_method.maxLength, LIMITS.contact);
-});
+  assert.equal(flow.nodes.contact_email.maxLength, LIMITS.email);
 
-test("reports built by the conversation pass server validation unchanged", () => {
-  const e = engineLib.createEngine(flow);
-  incidentToReview(e);
-  const report = flow.toReport(e.answers);
-  const result = validateReport(report);
-  assert.ok(result.ok, result.error);
-  assert.deepEqual(result.value, report);
-
-  const all = engineLib.createEngine(flow);
-  for (const step of ["continue", "safe", ["advocate", "office", "support", "conflict", "official"], "ask_first"]) reply(all, step);
-  all.answer(all.interpret("my own office").answer);
-  for (const step of ["accompany", "group", "no", "concern"]) reply(all, step);
-  all.answer(all.interpret("my own category").answer);
-  for (const step of ["skip", "skip", "skip", "skip"]) reply(all, step);
-  all.answer(all.interpret("before housing selection on March 3").answer);
-  for (const step of ["skip", "identified", "skip", "555-0100", "discreet"]) reply(all, step);
-  assert.equal(all.id, "review");
-  const second = flow.toReport(all.answers);
-  const checked = validateReport(second);
-  assert.ok(checked.ok, checked.error);
-  assert.deepEqual(checked.value, second);
-});
-
-test("the emailed text and the on-screen summary cover the same fields", () => {
-  const e = engineLib.createEngine(flow);
-  incidentToReview(e);
-  const report = flow.toReport(e.answers);
-  const text = reportToText(report);
-  for (const [label] of flow.describeReport(report)) {
-    if (label === "What happened") continue; // the email calls this "In their words"
-    assert.ok(text.includes(label + ":"), `email is missing "${label}"`);
+  // Every branch-specific field the server accepts is asked by that branch, and by no other.
+  for (const [branch, fields] of Object.entries(BRANCH_FIELDS)) {
+    const prefix = flow.branchStart[branch].slice(0, 2);
+    for (const field of fields) {
+      const askedBy = Object.entries(flow.nodes).filter(([, n]) => n.field === field).map(([id]) => id.slice(0, 2));
+      assert.ok(askedBy.includes(prefix), `${branch} never asks for ${field}`);
+    }
   }
-  assert.ok(text.includes("Fictional: something happened."));
-});
-
-test("every category routes to resources that exist", () => {
-  for (const option of flow.nodes.category.options) {
-    const list = resources.forCategory(option.value);
-    assert.ok(list.length >= 1, option.value);
-    for (const item of list) assert.ok(item && item.name && item.contacts.length, option.value);
-  }
-  for (const keys of Object.values(resources.byCategory)) for (const k of keys) assert.ok(resources.items[k], k);
-  for (const group of resources.groups) for (const k of group.keys) assert.ok(resources.items[k], k);
 });
 
 test("browser and server use the same access-code alphabet", () => {
-  const store = readFileSync(root + "assets/js/store.js", "utf8");
-  assert.ok(store.includes(`var ALPHABET = "${CODE_ALPHABET}"`));
+  assert.ok(readFileSync(root + "assets/js/store.js", "utf8").includes(`var CODE_ALPHABET = "${CODE_ALPHABET}"`));
 });
 
-const SITE_FILES = ["index.html", "report.html", "resources.html", "track.html", "about.html", "404.html", "admin/index.html",
-  "assets/js/common.js", "assets/js/flow.js", "assets/js/report-page.js", "assets/js/track-page.js", "assets/js/admin.js",
-  "assets/js/resources-data.js", "assets/js/resources-page.js", "assets/js/store.js", "assets/js/config.js", "README.md", "SETUP.md"];
+/* ---------- Resources ---------- */
 
-test("no em dashes anywhere on the site or in the docs", () => {
-  for (const file of SITE_FILES) {
-    const lines = readFileSync(root + file, "utf8").split("\n");
-    lines.forEach((line, i) => assert.ok(!line.includes("\u2014"), `${file}:${i + 1} has an em dash`));
+test("resource records are well formed, and unverified or empty ones are never published unless core", () => {
+  const categories = resources.categories.map((c) => c.id);
+  for (const r of resources.records) {
+    assert.ok(r.id && r.name && r.what && r.source, r.id);
+    assert.ok(categories.includes(r.category), `${r.id}: unknown category`);
+    assert.match(r.source, /^https:\/\//, `${r.id}: source must be an https link`);
+    assert.equal(typeof r.verified, "boolean", r.id);
+    for (const c of r.contacts) assert.match(c.href, /^(tel:\+?\d+|mailto:[^@]+@[^@]+|https:\/\/)/, `${r.id}: ${c.href}`);
+    if (!r.contacts.length) assert.ok(!resources.published(r), `${r.id}: a record with no contact details must not be shown`);
+    if (!r.verified && !r.core) assert.ok(!resources.published(r), `${r.id}: unverified non-core records must not be shown`);
+  }
+  const everyTopic = [...ALLOWED.topic];
+  for (const topic of everyTopic) for (const r of resources.forTopic(topic)) assert.ok(resources.published(r));
+  assert.ok(resources.forTopic("safety").length >= 2);
+  assert.deepEqual(resources.forTopic("safety").slice(0, 2).map((r) => r.id), ["public_safety", "emergency_911"], "Public Safety is listed before 911");
+  assert.equal(resources.search("title ix").some((r) => r.id === "title_ix"), true);
+  assert.equal(resources.search("zzzz").length, 0);
+});
+
+test("intake cannot open while a core contact is unverified", () => {
+  assert.equal(resources.coreVerified(), resources.records.every((r) => !r.core || r.verified));
+  const store = readFileSync(root + "assets/js/store.js", "utf8");
+  assert.match(store, /coreVerified\(\)/);
+  assert.match(store, /INTAKE_ENABLED !== true/);
+  for (const key of ["REVIEW_HOURS", "RESPONSE_TIME", "RETENTION", "CONFIDENTIALITY_LIMITS", "CONTACT_EMAIL"]) assert.ok(store.includes(`"${key}"`), key);
+});
+
+test("the committed configuration is closed, with no policy invented", () => {
+  const config = readFileSync(root + "assets/js/config.js", "utf8");
+  assert.match(config, /INTAKE_ENABLED: false/);
+  for (const key of ["REVIEW_HOURS", "RESPONSE_TIME", "RETENTION", "CONFIDENTIALITY_LIMITS", "CONTACT_EMAIL"]) {
+    assert.match(config, new RegExp(key + ': ""'), `${key} must stay empty until the owner decides it`);
+  }
+});
+
+/* ---------- The public site ---------- */
+
+const PAGES = ["index.html", "report.html", "resources.html", "about.html", "privacy.html", "contact.html", "track.html", "admin/index.html"];
+const SCRIPTS = readdirSync(root + "assets/js").map((f) => "assets/js/" + f);
+const DOCS = ["README.md", "SETUP.md", "docs/REVIEWER_CHECKLIST.md", ".env.example"];
+const SITE_FILES = [...PAGES, "404.html", ...SCRIPTS];
+
+function repoFiles(dir = "") {
+  const out = [];
+  for (const name of readdirSync(root + dir)) {
+    if ([".git", "node_modules", "vendor"].includes(name)) continue;
+    const path = dir + name;
+    if (statSync(root + path).isDirectory()) out.push(...repoFiles(path + "/"));
+    else if (/\.(html|js|mjs|ts|css|sql|md|sh|json|example)$/.test(name) || name === ".env.example") out.push(path);
+  }
+  return out;
+}
+
+test("no em dashes anywhere in the repository", () => {
+  for (const file of repoFiles()) {
+    readFileSync(root + file, "utf8").split("\n").forEach((line, i) => assert.ok(!line.includes("\u2014"), `${file}:${i + 1} has an em dash`));
   }
 });
 
 test("wherever both appear, University Public Safety is listed before 911", () => {
-  for (const file of SITE_FILES.filter((f) => !f.endsWith(".md"))) {
+  for (const file of SITE_FILES) {
     const text = readFileSync(root + file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    // Check each block of text on its own (a paragraph, list or string), not the file as a whole.
-    for (const block of text.split(/<\/p>|<\/ul>|\n\s*\n|\];/)) {
+    for (const block of text.split(/<\/p>|<\/ul>|\n\s*\n|\];|\},\s*\n/)) {
       const safety = block.search(/Public Safety|932-7070|\+12039327070/);
       const nine = block.search(/\b911\b/);
       if (safety !== -1 && nine !== -1) assert.ok(safety < nine, `${file}: 911 comes before Public Safety in: ${block.trim().slice(0, 90)}`);
@@ -97,14 +121,52 @@ test("wherever both appear, University Public Safety is listed before 911", () =
   }
 });
 
-test("the site makes no third-party requests and has no inline scripts or styles", () => {
-  for (const page of ["index.html", "report.html", "resources.html", "track.html", "about.html", "admin/index.html"]) {
+test("the site makes no third-party requests, has no inline scripts or styles, and works under a subpath", () => {
+  for (const page of PAGES) {
     const html = readFileSync(root + page, "utf8");
-    assert.match(html, /Content-Security-Policy/, page);
+    const csp = html.match(/Content-Security-Policy" content="([^"]+)"/);
+    assert.ok(csp, `${page} has no Content-Security-Policy`);
+    assert.match(csp[1], /script-src 'self';/);
+    assert.match(csp[1], /connect-src 'self' https:\/\/\*\.supabase\.co;/, `${page}: only Supabase may be contacted`);
     assert.ok(!/<script(?![^>]*\bsrc=)/.test(html), `${page} has an inline script`);
     assert.ok(!/\sstyle="/.test(html) && !/<style/.test(html), `${page} has inline styles`);
     for (const [, url] of html.matchAll(/<(?:script|link|img)[^>]+(?:src|href)="([^"]+)"/g)) {
       assert.ok(!/^(https?:)?\/\//.test(url), `${page} loads ${url} from another origin`);
     }
+    // GitHub Pages serves this site under /unhtipline/, so no link may start at the domain root.
+    for (const [, url] of html.matchAll(/(?:href|src)="([^"]+)"/g)) assert.ok(!url.startsWith("/"), `${page}: root-relative link ${url}`);
   }
+});
+
+test("public files contain no secrets, no reviewer mailbox, and no direct browser-to-email path", () => {
+  for (const file of [...SITE_FILES, "assets/css/styles.css"]) {
+    const text = readFileSync(root + file, "utf8");
+    assert.ok(!/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/.test(text), `${file} contains something shaped like a signed token`);
+    assert.ok(!/sb_secret_|re_[A-Za-z0-9]{16,}/.test(text), `${file} contains something shaped like a secret key`);
+    assert.ok(!/web3forms|formspree/i.test(text), `${file} still refers to a browser-to-email service`);
+    assert.ok(!/EMAIL_TO|RESEND_API_KEY|CODE_PEPPER|DISPATCH_SECRET/.test(text), `${file} names a server-side secret`);
+  }
+  const config = readFileSync(root + "assets/js/config.js", "utf8");
+  assert.match(config, /SUPABASE_ANON_KEY: ""/, "the anon key is the only key the site may hold, and it is filled in by the owner");
+});
+
+test("the dashboard page ships no report data, and the old mock dashboard is gone", () => {
+  const admin = readFileSync(root + "assets/js/admin.js", "utf8");
+  assert.ok(!/\[Fictional\]|fict\(|admin\.seed|localStorage/.test(admin), "no seeded or browser-stored cases");
+  assert.match(admin, /signInWithPassword/);
+  assert.match(admin, /mfa\.challengeAndVerify/);
+  assert.match(admin, /staff_open_report/);
+  const store = readFileSync(root + "assets/js/store.js", "utf8");
+  assert.ok(!/localStorage/.test(store), "there is no demo store that could fake a successful submission");
+});
+
+test("no telephone, text-message or IVR feature exists in code or documentation", () => {
+  for (const file of repoFiles().filter((f) => !f.startsWith("tests/"))) {
+    const text = readFileSync(root + file, "utf8");
+    assert.ok(!/twilio|textfree|\bivr\b|\bpbx\b|\bsms\b|sms:|text-message|auto-reply|phone tree/i.test(text), `${file} mentions a telephony feature`);
+  }
+});
+
+test("documentation the handoff requires exists", () => {
+  for (const file of DOCS) assert.ok(statSync(root + file).size > 500, file);
 });

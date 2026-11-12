@@ -3,18 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
-  <title>Get help or report | UNewHaven Pride Report</title>
-  <meta name="description" content="Tell Pride Guide, an automated assistant, what you need: advocacy, help with a University office, support, or help resolving a conflict.">
+  <title>Get help | UNewHaven Pride Report</title>
+  <meta name="description" content="Tell Pride Guide, an automated assistant, how the student team can help: report something, get help with a University office, peer support, an advocate, or information.">
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body class="chat-page" data-page="report" data-root="">
 <main id="main">
-  <div class="chat-layout">
+
+  <div class="wrap narrow" id="closed" hidden>
+    <div class="page-head">
+      <p class="eyebrow">Get help</p>
+      <h1>We’re not accepting submissions yet</h1>
+      <p class="lede">Pride Report is a student-run project that is still being set up. Until reviewers, privacy rules and response times are in place, this page does not send or save anything.</p>
+    </div>
+    <div class="callout callout-danger">
+      <h2>Need help now?</h2>
+      <p>In an emergency call University Public Safety at <a class="phone" href="tel:+12039327070">(203) 932-7070</a>, or call <a class="phone" href="tel:911">911</a>. To talk to someone at any time, call or text <a class="phone" href="tel:988">988</a>.</p>
+      <p>To make an official report to the University, or to find campus support, see <a href="resources.html">Resources</a>.</p>
+    </div>
+    <div class="card closed-preview">
+      <h2>Preview the questions</h2>
+      <p>You can walk through what Pride Guide will ask. It is a preview only: nothing you type leaves this page, and no one will read it.</p>
+      <button class="btn" type="button" id="start-preview">Preview the questions</button>
+    </div>
+  </div>
+
+  <div class="chat-layout" id="chat" hidden>
     <div class="chat-shell">
       <div class="chat-top">
         <div>
@@ -27,18 +46,12 @@
         </div>
       </div>
       <div class="progress" id="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar"></div></div>
-      <p class="stage-label" id="stage-label" aria-live="polite">Getting started</p>
+      <p class="stage-label" id="stage-label" aria-live="polite"></p>
 
       <details class="urgent-mobile">
         <summary>Need help right now?</summary>
         <p>Pride Guide can’t send help. Call University Public Safety at <a class="phone" href="tel:+12039327070">(203) 932-7070</a>, or call <a class="phone" href="tel:911">911</a>. To talk to someone any time, call or text <a class="phone" href="tel:988">988</a>.</p>
       </details>
-
-      <noscript>
-        <div class="callout callout-warn">
-          <p><strong>Pride Guide needs JavaScript to run.</strong> If you’d rather not enable it, the <a href="resources.html">Resources page</a> lists people you can contact directly. In an emergency call University Public Safety at (203) 932-7070, or call 911.</p>
-        </div>
-      </noscript>
 
       <div class="log" id="log" role="log" aria-live="polite" aria-label="Conversation with Pride Guide"></div>
       <div class="log" id="options"></div>
@@ -58,10 +71,10 @@
       <section class="side-card">
         <h2>Where you are</h2>
         <ol class="stage-list" id="stage-list">
-          <li>What you need</li>
-          <li>What happened</li>
-          <li>What you’d like to see</li>
-          <li>How to reach you</li>
+          <li>Safety check</li>
+          <li>How we can help</li>
+          <li>Your situation</li>
+          <li>Contact and privacy</li>
           <li>Review and submit</li>
         </ol>
       </section>
@@ -82,15 +95,23 @@
           <li>You don’t have to give your name.</li>
           <li>This is not an official University report.</li>
         </ul>
-        <p><a href="about.html" target="_blank" rel="noopener">About &amp; privacy (new tab)</a></p>
+        <p><a href="privacy.html" target="_blank" rel="noopener">Privacy (new tab)</a></p>
       </section>
     </aside>
   </div>
+
+  <noscript>
+    <div class="wrap narrow">
+      <div class="callout callout-warn">
+        <p><strong>Pride Guide needs JavaScript to run.</strong> If you’d rather not enable it, the <a href="resources.html">Resources page</a> lists people you can contact directly. In an emergency call University Public Safety at (203) 932-7070, or call 911.</p>
+      </div>
+    </div>
+  </noscript>
 </main>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/store.js"></script>
-<script src="assets/js/common.js"></script>
 <script src="assets/js/resources-data.js"></script>
+<script src="assets/js/common.js"></script>
 <script src="assets/js/engine.js"></script>
 <script src="assets/js/flow.js"></script>
 <script src="assets/js/report-page.js"></script>

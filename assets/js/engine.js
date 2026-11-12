@@ -11,7 +11,9 @@
  *     allowText: true          a typed answer is accepted on a choice node and stored as "other"
  *     optional: true           the student may skip
  *     next: "id" | (answers) => "id"
- *     partOf: "nodeId"         follow-up question that belongs to another node when editing }
+ *     skipNext: "id"           where to go when the question is skipped, if different from next
+ *     pattern: RegExp          a text answer must match this
+ *     partOf: "nodeId" | [..]  follow-up question that is asked again when that node is edited }
  *
  * Answer shapes:
  *   choice -> { value, label } or { value: "other", label, text }   text -> { text }
@@ -52,7 +54,10 @@
       if (!raw) return { error: "empty" };
       var max = n.maxLength || flow.maxLength || 4000;
       if (raw.length > max) return { error: "too_long", max: max };
-      if (n.type === "text") return { answer: { text: raw } };
+      if (n.type === "text") {
+        if (n.pattern && !n.pattern.test(raw)) return { error: "invalid_format" };
+        return { answer: { text: raw } };
+      }
       if (n.type === "choice") {
         var typed = norm(raw);
         for (var i = 0; i < n.options.length; i++) {
@@ -69,7 +74,10 @@
     function validate(n, ans) {
       if (!ans || typeof ans !== "object") return "invalid";
       if (ans.skipped) return n.optional ? null : "required";
-      if (n.type === "text") return typeof ans.text === "string" && ans.text.trim() ? null : "empty";
+      if (n.type === "text") {
+        if (typeof ans.text !== "string" || !ans.text.trim()) return "empty";
+        return n.pattern && !n.pattern.test(ans.text.trim()) ? "invalid_format" : null;
+      }
       if (n.type === "choice") {
         if (ans.value === "other" && n.allowText && ans.text) return null;
         return n.options.some(function (o) { return o.value === ans.value; }) ? null : "choose_option";
@@ -97,13 +105,14 @@
       var chosen = n.type === "choice" && !ans.skipped
         ? n.options.filter(function (o) { return o.value === ans.value; })[0]
         : null;
-      var next = resolve((chosen && chosen.next) || n.next);
+      // A skipped question may lead somewhere different from an answered one.
+      var next = resolve(ans.skipped && n.skipNext ? n.skipNext : (chosen && chosen.next) || n.next);
       if (!next || !flow.nodes[next]) throw new Error("Node " + id + " has no valid next step");
 
       if (state.editing) {
         // While editing from the review screen, only follow-up questions that belong to the edited
         // node are asked; anything else returns straight to the review.
-        if (flow.nodes[next].partOf === state.editing.root) {
+        if ([].concat(flow.nodes[next].partOf || []).indexOf(state.editing.root) !== -1) {
           state.current = next;
         } else {
           state.current = state.editing.returnTo;
