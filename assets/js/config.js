@@ -23,7 +23,7 @@ window.PR_CONFIG = {
 
   SITE_NAME: "UNewHaven Pride Report",
   // Where the "Quick exit" button sends the browser.
-  QUICK_EXIT_URL: "https://www.wikipedia.org/",
+  QUICK_EXIT_URL: "https://en.wikipedia.org/",
   // Shown to students so nobody expects a live response. Set this to what reviewers can really sustain.
   REVIEW_EXPECTATION: "Reports are read by trained student reviewers, not monitored live. A first look can take several days."
 };
