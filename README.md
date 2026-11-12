@@ -122,7 +122,7 @@ The code is the smaller part of this. None of the following is done:
 
 ## SMS front door
 
-A text number (for example TextFree) can auto-reply with a link to the site. It is a way to find the site, not a reporting channel — the About page says so. Suggested auto-reply, which leaves 29 characters for the link within a 160-character limit:
+A text number (for example TextFree) can auto-reply with a link to the site. It is a way to find the site, not a reporting channel — the About page says so. Suggested auto-reply, which leaves 45 characters for the link within a 160-character limit:
 
 > UNewHaven Pride Report: share an LGBTQ+ campus concern at [URL]. This number is not monitored. In an emergency call 911.
 
