@@ -31,7 +31,7 @@ function fakeDeps(result = { data: { id: "PR-1043", received_at: "2026-11-12T12:
         if (fn === "outbox_claim") return { data: [], error: null };
         return result;
       },
-      pepper: PEPPER, allowedOrigin: ORIGIN, recipients: ["reviewers@example.org"], mail, mailFrom: "Pride Report <reports@example.org>",
+      pepper: PEPPER, allowedOrigin: ORIGIN, recipients: ["reviewers@example.org"], mail, mailFrom: "Pride Line <reports@example.org>",
       includeDetails: false, dashboardUrl: "https://example.github.io/unhtipline/admin/", dispatchSecret: "d".repeat(40),
       now: () => new Date("2026-11-12T12:00:00Z"), ...extra
     }
@@ -209,7 +209,7 @@ function outboxDeps(rows, extra = {}) {
 test("notification email is metadata only by default: reference, request type and flags, never what the student wrote", () => {
   const report = reportFor("advocate");
   const mail = notificationFor(claimed({ report }), { includeDetails: false, dashboardUrl: "https://example.github.io/unhtipline/admin/" });
-  assert.equal(mail.subject, "New Pride Report PR-1046");
+  assert.equal(mail.subject, "New Pride Line PR-1046");
   assert.match(mail.text, /Reference: PR-1046/);
   assert.match(mail.text, /Request type: Advocacy requested/);
   assert.match(mail.text, /Advocacy requested: yes/);
@@ -238,7 +238,7 @@ test("the full-detail email exists only as an explicit opt-in", () => {
   const on = notificationFor(claimed({ report }), { includeDetails: true, dashboardUrl: "" });
   assert.ok(on.text.includes(report.narrative));
   assert.match(on.text, /confidential student report/);
-  assert.equal(on.subject, "New Pride Report PR-1046", "even then the subject has no details");
+  assert.equal(on.subject, "New Pride Line PR-1046", "even then the subject has no details");
   const text = reportToText(report);
   assert.match(text, /^Request type: Advocacy requested$/m);
   assert.match(text, /^Permission to contact others: anonymous$/m);
@@ -285,12 +285,12 @@ test("dispatch summary counts what happened to each claimed notification", async
 test("resend adapter: request shape, idempotency key, and error categories", async () => {
   const seen = [];
   const ok = resendProvider("re_test_key", async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify({ id: "msg_1" }), { status: 200 }); });
-  const result = await ok.send({ to: "reviewers@example.org", from: "Pride Report <r@example.org>", subject: "s", text: "t", idempotencyKey: "pride-report-7" });
+  const result = await ok.send({ to: "reviewers@example.org", from: "Pride Line <r@example.org>", subject: "s", text: "t", idempotencyKey: "pride-report-7" });
   assert.equal(result.id, "msg_1");
   assert.equal(seen[0].url, "https://api.resend.com/emails");
   assert.equal(seen[0].init.headers.Authorization, "Bearer re_test_key");
   assert.equal(seen[0].init.headers["Idempotency-Key"], "pride-report-7");
-  assert.deepEqual(JSON.parse(seen[0].init.body), { from: "Pride Report <r@example.org>", to: ["reviewers@example.org"], subject: "s", text: "t" });
+  assert.deepEqual(JSON.parse(seen[0].init.body), { from: "Pride Line <r@example.org>", to: ["reviewers@example.org"], subject: "s", text: "t" });
   for (const [status, category] of [[401, "auth"], [403, "auth"], [429, "rate_limited"], [422, "invalid_request"], [500, "provider_error"]]) {
     const failing = resendProvider("k", async () => new Response("no", { status }));
     await assert.rejects(failing.send({ to: "a@example.org", from: "b", subject: "s", text: "t", idempotencyKey: "k" }), (e) => e instanceof MailError && e.category === category);

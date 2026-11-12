@@ -148,7 +148,7 @@ type Claimed = {
 /** The notification email. By default it carries the reference number and triage flags, and nothing the student wrote. */
 export function notificationFor(row: Claimed, deps: Pick<Deps, "includeDetails" | "dashboardUrl">): { subject: string; text: string } {
   const lines = [
-    `A new submission is waiting in the Pride Report reviewer dashboard.`,
+    `A new submission is waiting in the Pride Line reviewer dashboard.`,
     ``,
     `Reference: ${row.id}`,
     `Request type: ${HELP_LABELS[row.help ?? ""] ?? "Not recorded"}`,
@@ -165,7 +165,7 @@ export function notificationFor(row: Claimed, deps: Pick<Deps, "includeDetails" 
     lines.push("", "For privacy, nothing the student wrote is included in this email.");
   }
   // The subject shows up in notifications and on lock screens, so it never carries details.
-  return { subject: `New Pride Report ${row.id}`, text: lines.join("\n") };
+  return { subject: `New Pride Line ${row.id}`, text: lines.join("\n") };
 }
 
 export type DispatchSummary = { claimed: number; sent: number; requeued: number; failed: number };

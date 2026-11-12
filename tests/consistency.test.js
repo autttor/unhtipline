@@ -78,11 +78,14 @@ test("intake cannot open while a core contact is unverified", () => {
   for (const key of ["REVIEW_HOURS", "RESPONSE_TIME", "RETENTION", "CONFIDENTIALITY_LIMITS", "CONTACT_EMAIL"]) assert.ok(store.includes(`"${key}"`), key);
 });
 
-test("the committed configuration is closed, with no policy invented", () => {
+test("the committed configuration is complete before intake is enabled", () => {
   const config = readFileSync(root + "assets/js/config.js", "utf8");
-  assert.match(config, /INTAKE_ENABLED: false/);
-  for (const key of ["REVIEW_HOURS", "RESPONSE_TIME", "RETENTION", "CONFIDENTIALITY_LIMITS", "CONTACT_EMAIL"]) {
-    assert.match(config, new RegExp(key + ': ""'), `${key} must stay empty until the owner decides it`);
+  if (/INTAKE_ENABLED: true/.test(config)) {
+    for (const key of ["REVIEW_HOURS", "RESPONSE_TIME", "RETENTION", "CONFIDENTIALITY_LIMITS", "CONTACT_EMAIL"]) {
+      assert.match(config, new RegExp(key + ': "[^"]+"'), `${key} must be filled in while intake is enabled`);
+    }
+    assert.match(config, /SUPABASE_URL: "https:\/\/[a-z0-9]+\.supabase\.co"/);
+    assert.ok(resources.coreVerified(), "intake is enabled but a core contact is unverified");
   }
 });
 
@@ -147,7 +150,7 @@ test("public files contain no secrets, no reviewer mailbox, and no direct browse
     assert.ok(!/EMAIL_TO|RESEND_API_KEY|CODE_PEPPER|DISPATCH_SECRET/.test(text), `${file} names a server-side secret`);
   }
   const config = readFileSync(root + "assets/js/config.js", "utf8");
-  assert.match(config, /SUPABASE_ANON_KEY: ""/, "the anon key is the only key the site may hold, and it is filled in by the owner");
+  assert.ok(!/sb_secret_|service_role/.test(config), "only the public (anon or publishable) key may appear here");
 });
 
 test("the dashboard page ships no report data, and the old mock dashboard is gone", () => {

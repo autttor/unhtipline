@@ -226,7 +226,7 @@ const FIELD_LABELS: [keyof Report, string][] = [
   ["peer_kind", "Support wanted"], ["outcome", "Outcome hoped for"], ["advocacy_kind", "What advocacy means to them"],
   ["topic", "Topic"], ["next_steps", "Suggested next steps"],
   ["contact_want", "Wants to be contacted"], ["contact_email", "Email"], ["contact_name", "Name"],
-  ["contact_discreet", "OK to mention Pride Report"],
+  ["contact_discreet", "OK to mention Pride Line"],
   ["external_contact", "Permission to contact others"], ["external_contact_scope", "Who and what"],
 ];
 

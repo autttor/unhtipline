@@ -33,9 +33,9 @@
 
   var records = [
     {
-      id: "public_safety", category: "emergency", core: true, verified: false, checked: null,
+      id: "public_safety", category: "emergency", core: true, verified: true, checked: "2026-11-12",
       name: "University Public Safety",
-      what: "Call first for an emergency on campus. Pride Report is not monitored live and cannot send anyone.",
+      what: "Call first for an emergency on campus. Pride Line is not monitored live and cannot send anyone.",
       contacts: [{ label: "Phone", text: "(203) 932-7070", href: "tel:+12039327070" }],
       source: "https://www.newhaven.edu/student-life/public-safety/",
       topics: ["safety"], keywords: "police campus security emergency danger"
@@ -57,7 +57,7 @@
       topics: ["mental_health", "safety"], keywords: "suicide crisis mental health counseling talk"
     },
     {
-      id: "trevor", category: "emergency", core: true, verified: false, checked: null,
+      id: "trevor", category: "emergency", core: true, verified: true, checked: "2026-11-12",
       name: "The Trevor Project",
       what: "Crisis counselors for LGBTQ+ young people.",
       contacts: [{ label: "Call", text: "1-866-488-7386", href: "tel:+18664887386" }],
@@ -65,15 +65,15 @@
       topics: ["mental_health", "community"], keywords: "crisis lgbtq youth suicide counseling chat"
     },
     {
-      id: "report_it", category: "official", core: true, verified: false, checked: null,
+      id: "report_it", category: "official", core: true, verified: true, checked: "2026-11-12",
       name: "Report It! (University incident reporting)",
-      what: "The University’s own incident-reporting system. Filing here is what creates an official University report. Sending something to Pride Report does not.",
+      what: "The University’s own incident-reporting system. Filing here is what creates an official University report. Sending something to Pride Line does not.",
       contacts: [{ label: "Web", text: "newhaven.edu: Report It!", href: "https://www.newhaven.edu/student-life/public-safety/report-it/index.php" }],
       source: "https://www.newhaven.edu/student-life/public-safety/report-it/index.php",
       topics: ["reporting", "title_ix", "housing"], keywords: "official report incident bias discrimination complaint"
     },
     {
-      id: "title_ix", category: "official", core: true, verified: false, checked: null,
+      id: "title_ix", category: "official", core: true, verified: true, checked: "2026-11-12",
       name: "Title IX reporting and supportive measures",
       what: "The University’s route for sex-based discrimination, sexual harassment and sexual misconduct. The official page explains the reporting options and supportive measures.",
       contacts: [{ label: "Web", text: "newhaven.edu: Title IX reporting", href: "https://www.newhaven.edu/about/title-ix/reporting.php" }],
@@ -81,7 +81,7 @@
       topics: ["reporting", "title_ix", "safety"], keywords: "title ix sexual harassment misconduct discrimination supportive measures"
     },
     {
-      id: "myatt", category: "campus", core: true, verified: false, checked: null,
+      id: "myatt", category: "campus", core: true, verified: true, checked: "2026-11-12",
       name: "Myatt Center for Diversity and Inclusion",
       what: "A University center that supports LGBTQ+ students.",
       contacts: [

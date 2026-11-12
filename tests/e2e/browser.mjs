@@ -45,7 +45,7 @@ const type = async (page, text) => { await page.fill("#composer-input", text); a
   if (!(await page.locator("#log").innerText()).includes("I need peer support")) await page.locator("button.choice", { hasText: "I need peer support" }).click();
   await click(page, "Someone to listen"); await click(page, "Done"); await click(page, "Skip"); await click(page, "No");
   await click(page, "I understand. Continue");
-  ok((await page.locator("#log").innerText()).includes("[to be confirmed before this service opens]"), "closed: undecided policies are shown as undecided");
+  ok((await page.locator("#log").innerText()).includes("Monday to Friday, 9AM to 7PM ET"), "closed: the privacy notice shows the configured policies");
   await page.check("#consent-unofficial"); await page.check("#consent-share");
   await click(page, "Finish preview (nothing is sent)");
   ok((await page.locator("#options").innerText()).includes("Nothing was sent or saved"), "closed: finishing the preview shows no receipt");
@@ -124,7 +124,7 @@ let advocacyId;
   await page.waitForTimeout(400);
   ok(await peek("select status || ',' || attempts from private.outbox") === "sent,1", "one outbox row, sent on the first attempt");
   const mail = await mailbox();
-  ok(mail.length === 1 && mail[0].to === "reviewers@example.org" && mail[0].subject === "New Pride Report " + advocacyId, "one notification email to the reviewer mailbox");
+  ok(mail.length === 1 && mail[0].to === "reviewers@example.org" && mail[0].subject === "New Pride Line " + advocacyId, "one notification email to the reviewer mailbox");
   ok(mail[0].text.includes("Advocacy requested") && !/roster|student@example\.com|advising/.test(mail[0].text), "the email flags advocacy and contains nothing the student wrote");
   await page.context().close();
 }
@@ -298,7 +298,7 @@ const reviewer = await newPage();
   await click(page, "Send due emails now");
   await page.waitForFunction(() => /Sent 1/.test(document.querySelector("#app").textContent));
   const mail = await mailbox();
-  ok(mail.length === 2 && mail[1].subject === "New Pride Report " + incidentId && !mail[1].text.includes("sticker"), "the retried notification is delivered, still without the narrative");
+  ok(mail.length === 2 && mail[1].subject === "New Pride Line " + incidentId && !mail[1].text.includes("sticker"), "the retried notification is delivered, still without the narrative");
   ok(await peek(`select count(*) from private.outbox where status = 'sent'`) === 2, "both notifications are now recorded as sent");
 
   // Team: invite, then remove the reviewer's access while they are signed in.
@@ -348,7 +348,7 @@ const reviewer = await newPage();
   ok((await page.locator("#resource-groups").innerText()).includes("Title IX") && !(await page.locator("#resource-groups").innerText()).includes("Myatt"), "resource search narrows the list");
   ok(!(await page.locator("#resource-groups").innerText()).includes("Residential Life"), "records without verified contact details are not shown");
   await page.goto(base + "/closed/privacy.html");
-  ok((await page.locator("main").innerText()).includes("TO BE CONFIRMED"), "closed site shows undecided policies as TO BE CONFIRMED");
+  ok((await page.locator("main").innerText()).includes("1 semester"), "the privacy page shows the configured retention");
   await page.context().close();
 }
 

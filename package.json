@@ -2,7 +2,7 @@
   "name": "pride-report",
   "private": true,
   "type": "module",
-  "description": "UNewHaven Pride Report: static site plus Supabase backend scaffold. No build step and no runtime dependencies.",
+  "description": "UNH Pride Line: static site plus Supabase backend scaffold. No build step and no runtime dependencies.",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
     "test:db": "bash supabase/tests/run_local.sh",

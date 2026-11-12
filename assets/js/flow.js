@@ -78,8 +78,8 @@
       type: "choice", step: 0, field: "safe",
       say: function () {
         return [
-          "Hi. This is Pride Guide, the automated assistant for UNewHaven Pride Report. I am a scripted program, not a person.",
-          "Pride Report is run by students. It is not affiliated with, operated by, or endorsed by the University of New Haven.",
+          "Hi. This is Pride Guide, the automated assistant for UNH Pride Line. I am a scripted program, not a person.",
+          "Pride Line is run by students. It is not affiliated with, operated by, or endorsed by the University of New Haven.",
           "This service is not monitored 24/7 and is not an emergency service. Anything you send here is not an official University report.",
           "You can choose not to identify yourself, but we can’t guarantee full anonymity or confidentiality. Before you submit anything, we will show you who can read it and how it is handled.",
           context.preview ? "Preview only: this site is not accepting submissions yet. Nothing you enter is sent or saved." : null,
@@ -493,7 +493,7 @@
 
     contact_discreet: {
       type: "choice", step: 3, field: "contact_discreet", optional: true, partOf: "contact_want",
-      say: ["When we email you, is it OK for the message to mention Pride Report?"],
+      say: ["When we email you, is it OK for the message to mention Pride Line?"],
       options: [
         { value: "ok", label: "Yes, that’s fine", aliases: ["yes", "fine", "ok", "okay"] },
         { value: "discreet", label: "No, please be discreet", aliases: ["no", "discreet", "be discreet"] }
@@ -613,7 +613,7 @@
     }
     rows.push(["contact_want", "Contact you about this"]);
     if (value(answers.contact_want) === "yes") {
-      rows.push(["contact_email", "Email"], ["contact_name", "Name"], ["contact_discreet", "OK to mention Pride Report"]);
+      rows.push(["contact_email", "Email"], ["contact_name", "Name"], ["contact_discreet", "OK to mention Pride Line"]);
     }
     if (needsConsent(answers)) {
       rows.push(["consent", "May we contact others for you"]);

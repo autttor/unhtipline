@@ -24,7 +24,7 @@ window.PR_CONFIG = {
     // When reviewers read submissions, e.g. "Monday to Friday during the semester".
     REVIEW_HOURS: "Monday to Friday, 9AM to 7PM ET",
     // How long a first response usually takes, e.g. "within three days when classes are in session".
-    RESPONSE_TIME: "a day",
+    RESPONSE_TIME: "within a day",
     // How long submissions are kept before deletion, e.g. "12 months".
     RETENTION: "1 semester",
     // When reviewers must tell someone else, e.g. a threat to someone's safety. Agree this with
@@ -42,7 +42,7 @@ window.PR_CONFIG = {
     ACCOMPANIMENT: true
   },
 
-  SITE_NAME: "UNewHaven Pride Report",
+  SITE_NAME: "UNH Pride Line",
   // Where the "Quick exit" button sends the browser.
   QUICK_EXIT_URL: "https://en.wikipedia.org/"
 };

@@ -36,7 +36,7 @@ export function liveDeps(): Deps {
     recipients: env("EMAIL_TO").split(",").map((a) => a.trim()).filter(Boolean),
     mail: mailProvider(),
     // Resend's shared test sender works before you verify a domain, but only delivers to your own address.
-    mailFrom: env("EMAIL_FROM") || "Pride Report <onboarding@resend.dev>",
+    mailFrom: env("EMAIL_FROM") || "Pride Line <onboarding@resend.dev>",
     // Off unless explicitly switched on. See SETUP.md for what turning it on exposes.
     includeDetails: env("EMAIL_INCLUDE_DETAILS").toLowerCase() === "true",
     dashboardUrl: env("DASHBOARD_URL"),

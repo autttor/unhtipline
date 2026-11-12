@@ -1,6 +1,6 @@
 # Reviewer operations and privacy checklist
 
-For every member of the Pride Report student team. Read it before you are invited, and again each semester.
+For every member of the Pride Line student team. Read it before you are invited, and again each semester.
 
 ## Your account
 
@@ -16,7 +16,7 @@ For every member of the Pride Report student team. Read it before you are invite
 - You are a student volunteer. You listen, document, explain options, help someone prepare, and connect them with resources.
 - You are not an investigator, a counselor, a lawyer, or a University official.
 - You never decide whether something "really happened", never promise an outcome, and never tell a student what the University will do.
-- Pride Report is not an emergency service. If a case suggests someone is in danger now, follow the escalation procedure below. Do not try to handle it alone.
+- Pride Line is not an emergency service. If a case suggests someone is in danger now, follow the escalation procedure below. Do not try to handle it alone.
 
 ## Working the queue
 
@@ -40,7 +40,7 @@ The case shows two permissions. They are separate, and both default to no.
 
 **Contact the student.**
 - [ ] Only if they asked to be contacted, and only at the email address they gave.
-- [ ] If the case says "be discreet", your message must not mention Pride Report, LGBTQ+ topics, or the nature of their request in the subject or the opening lines. Someone else may see their inbox.
+- [ ] If the case says "be discreet", your message must not mention Pride Line, LGBTQ+ topics, or the nature of their request in the subject or the opening lines. Someone else may see their inbox.
 - [ ] Write from the team mailbox, never from a personal account. Then log the attempt on the case.
 - [ ] If they did not ask to be contacted, do not try to find or reach them by any means.
 

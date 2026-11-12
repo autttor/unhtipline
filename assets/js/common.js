@@ -100,7 +100,7 @@
       el("div", { class: "wrap header-row" }, [
         el("a", { class: "brand", href: root + "index.html" }, [
           el("span", { class: "brand-mark", "aria-hidden": "true", text: "P" }),
-          el("span", { class: "brand-name" }, ["Pride Report", el("small", { text: "UNewHaven · student-led" })])
+          el("span", { class: "brand-name" }, ["Pride Line", el("small", { text: "UNH · student-led" })])
         ]),
         nav,
         toggle,
@@ -115,7 +115,7 @@
   function buildClosedBanner() {
     return el("div", { class: "banner banner-demo", role: "note" }, el("div", { class: "wrap" }, el("p", null, [
       el("strong", { text: "Not accepting submissions yet. " }),
-      "Pride Report is still being set up. You can preview the questions, but nothing you enter is sent or saved. ",
+      "Pride Line is still being set up. You can preview the questions, but nothing you enter is sent or saved. ",
       el("a", { href: root + "resources.html", text: "Resources you can use now" }), "."
     ])));
   }
@@ -124,7 +124,7 @@
     var siteLinks = links.concat([["admin", "admin/index.html", "Reviewer sign-in"]]);
     return el("footer", { class: "site-footer" }, el("div", { class: "wrap footer-grid" }, [
       el("div", null, [
-        el("h2", { text: "UNewHaven Pride Report" }),
+        el("h2", { text: "UNH Pride Line" }),
         el("p", { text: "An independent, student-led initiative. Not an official University of New Haven reporting channel, and not affiliated with or endorsed by the University." }),
         el("p", { text: "Submitting here does not file a University complaint." })
       ]),

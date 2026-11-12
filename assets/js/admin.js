@@ -119,7 +119,7 @@
       }
     }, [
       el("h2", { text: "Reviewer sign-in" }),
-      el("p", { class: "muted", text: "For members of the Pride Report student team. Each reviewer has their own account." }),
+      el("p", { class: "muted", text: "For members of the Pride Line student team. Each reviewer has their own account." }),
       field("Email", email),
       field("Password", password),
       error,
@@ -183,7 +183,7 @@
       var stale = ((res.data && res.data.all) || []).filter(function (f) { return f.status !== "verified"; });
       return Promise.all(stale.map(function (f) { return client.auth.mfa.unenroll({ factorId: f.id }); }));
     }).then(function () {
-      return client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Pride Report " + Date.now() });
+      return client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Pride Line " + Date.now() });
     }).then(function (res) {
       if (res.error) { show(notice("The second sign-in step could not be set up: " + res.error.message, "warn")); return; }
       var code = codeInput();
@@ -225,7 +225,7 @@
       }
     }, [
       el("h2", { text: "Enter your code" }),
-      el("p", { class: "muted", text: "Open your authenticator app and enter the 6-digit code for Pride Report." }),
+      el("p", { class: "muted", text: "Open your authenticator app and enter the 6-digit code for Pride Line." }),
       field("Code", code),
       error,
       el("div", { class: "chips" }, [
@@ -409,7 +409,7 @@
     var rep = d.report || {};
     var contact = d.contact_requested
       ? "Yes, by email: " + (rep.contact_email || "(not given)") + (rep.contact_name ? " · Name to use: " + rep.contact_name : "") +
-        (rep.contact_discreet && rep.contact_discreet.value === "discreet" ? " · BE DISCREET: do not mention Pride Report" : "")
+        (rep.contact_discreet && rep.contact_discreet.value === "discreet" ? " · BE DISCREET: do not mention Pride Line" : "")
       : "No. The student asked not to be contacted.";
     var external = { no: "NOT PERMITTED. Do not contact any office or person about this case.", ask: "Ask the student first, every time.",
       anonymous: "Permitted without identifying the student.", named: "Permitted, and the student may be identified." }[rep.external_contact || "no"];

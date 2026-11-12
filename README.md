@@ -1,8 +1,8 @@
-# UNewHaven Pride Report
+# UNH Pride Line
 
 An independent, student-run intake for LGBTQ+ students at the University of New Haven: report something, get help with a University office, find peer support, ask for an advocate, or find resources.
 
-Pride Report is not affiliated with, operated by, or endorsed by the University of New Haven. It is not an emergency service and not an official University reporting channel.
+Pride Line is not affiliated with, operated by, or endorsed by the University of New Haven. It is not an emergency service and not an official University reporting channel.
 
 **Status: intake is closed.** The code is in place, but the site will not accept submissions until the owner finishes [SETUP.md](SETUP.md). Until then visitors can preview the questions, and nothing they type is sent or saved.
 
@@ -18,7 +18,7 @@ Private Postgres record  +  outbox row per reviewer mailbox      <- the student'
    v
 Email worker (same function, then a retry job): Resend
    v
-Reviewer mailbox: "New Pride Report PR-1043", request type, link. No narrative.
+Reviewer mailbox: "New Pride Line PR-1043", request type, link. No narrative.
    v
 Reviewer dashboard (/admin/): own account, password, authenticator code
 ```

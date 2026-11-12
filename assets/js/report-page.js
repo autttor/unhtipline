@@ -297,7 +297,7 @@
   function renderPreviewEnd() {
     optionsBox.appendChild(el("div", { class: "callout callout-warn" }, [
       el("h3", { text: "Preview complete" }),
-      el("p", { text: "Nothing was sent or saved, and no one will read what you typed. Pride Report is not accepting submissions yet." }),
+      el("p", { text: "Nothing was sent or saved, and no one will read what you typed. Pride Line is not accepting submissions yet." }),
       el("p", { text: "If something has happened and you need help now, the Resources page lists people you can contact, including the official University routes." }),
       el("div", { class: "chips" }, [
         el("a", { class: "btn btn-sm", href: "resources.html", text: "Open Resources" }),
@@ -342,7 +342,7 @@
     optionsBox.appendChild(el("div", { class: "callout" }, [
       el("h3", { text: "What happens next" }),
       el("p", { text: "Received does not mean read. Reviewers read submissions " + policy.REVIEW_HOURS + ", and a first response usually comes " + policy.RESPONSE_TIME + ". " + contact }),
-      el("p", { text: "Pride Report has not told the University, and will not contact anyone on your behalf unless you gave that permission. If you want an official response, the routes below are how to ask for one." }),
+      el("p", { text: "Pride Line has not told the University, and will not contact anyone on your behalf unless you gave that permission. If you want an official response, the routes below are how to ask for one." }),
       el("div", { class: "chips no-print" }, [el("a", { class: "btn btn-ghost btn-sm", href: "index.html", text: "Back to home" })])
     ]));
 

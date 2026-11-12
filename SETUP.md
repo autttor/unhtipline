@@ -1,12 +1,12 @@
 # Setup and deployment
 
-This is the owner's checklist: what to do, in order, to take Pride Report from "closed" to accepting real submissions. Nothing here needs a programmer, but some steps use a terminal.
+This is the owner's checklist: what to do, in order, to take Pride Line from "closed" to accepting real submissions. Nothing here needs a programmer, but some steps use a terminal.
 
 ## Read this first: what this update changes
 
 - **Intake is closed until you finish this checklist.** The site now refuses to accept submissions unless the backend is deployed, the policies are written down, and the core campus contacts are verified. Until then, visitors see "not accepting submissions yet" and can only preview the questions. Nothing they type in the preview is sent or saved.
 - **The site and the backend must be updated together.** The new site sends a new kind of report. If you publish the site without redeploying the functions (Part A), submissions fail safely with an error. They are never lost silently and never shown as successful.
-- **Emails no longer contain what the student wrote.** Reviewers get "New Pride Report PR-1043" with the request type and a link to the dashboard. The report is read in the dashboard, behind each reviewer's own sign-in.
+- **Emails no longer contain what the student wrote.** Reviewers get "New Pride Line PR-1043" with the request type and a link to the dashboard. The report is read in the dashboard, behind each reviewer's own sign-in.
 - **The Web3Forms and Formspree path is removed.** Reports no longer go from the browser to an email service. Those two keys were in this repository's history. They only allow sending to your inbox, but you can delete both forms in those services to retire them.
 - **Tracking codes are retired for new submissions.** Students now get a reference number as a receipt. Anyone who was given an access code earlier can still use it on the "earlier access codes" page.
 
@@ -149,7 +149,7 @@ Intake stays closed until every item here is done. The site checks them itself.
 | --- | --- | --- |
 | `REVIEW_HOURS` | When reviewers actually read submissions | The reviewer team |
 | `RESPONSE_TIME` | A first-response time you can keep during exams and breaks | The reviewer team |
-| `RETENTION` | How long submissions are kept. The database default is 365 days: if you choose something else, change `delete_after` in the first migration to match. | An adviser |
+| `RETENTION` | How long submissions are kept. The database default is 180 days (one semester, migration 0003). If you choose something else, add a migration that changes the `delete_after` default. | An adviser |
 | `CONFIDENTIALITY_LIMITS` | When a reviewer must tell someone else, for example a threat to someone's safety, and how that interacts with Title IX and campus safety obligations. Student reviewers may have reporting duties of their own. | Appropriate University staff |
 | `CONTACT_EMAIL` | A monitored address for questions about the project, not for reports | You |
 

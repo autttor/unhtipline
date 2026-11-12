@@ -32,6 +32,7 @@ psql=("$bindir/psql" -h "$work" -p "$PGPORT" -U postgres -d postgres -v ON_ERROR
 "${psql[@]}" -f "$root/supabase/tests/local_stub.sql"
 "${psql[@]}" -f "$root/supabase/migrations/0001_init.sql"
 "${psql[@]}" -f "$root/supabase/migrations/0002_dashboard_outbox.sql"
+"${psql[@]}" -f "$root/supabase/migrations/0003_retention_180_days.sql"
 # Fictional team: an admin, a reviewer and an advocate, plus an account that is not on the team.
 "${psql[@]}" <<'SQL'
 insert into auth.users (id, email) values

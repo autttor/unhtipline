@@ -151,7 +151,7 @@ const deps = {
   pepper: "end-to-end-test-pepper-0123456789abcdef", allowedOrigin: ORIGIN,
   recipients: ["reviewers@example.org"],
   mail: { name: "sandbox", send: (m) => mailFails ? Promise.reject(new MailError("provider_error", "simulated outage")) : mailbox.send(m) },
-  mailFrom: "Pride Report <reports@example.org>", includeDetails: false, dashboardUrl: `${ORIGIN}/open/admin/`,
+  mailFrom: "Pride Line <reports@example.org>", includeDetails: false, dashboardUrl: `${ORIGIN}/open/admin/`,
   dispatchSecret: "end-to-end-dispatch-secret-0123456789",
   verifyStaff: async (authorization) => {
     const claims = claimsFrom(authorization);
@@ -174,7 +174,7 @@ const functions = { "submit-report": handleSubmit, "send-notifications": handleD
 const POLICY = `{ REVIEW_HOURS: "on weekdays during the semester", RESPONSE_TIME: "within three days", RETENTION: "12 months",
   CONFIDENTIALITY_LIMITS: "If you tell us someone is in immediate danger, a reviewer may contact University Public Safety.", CONTACT_EMAIL: "team@example.org" }`;
 function configFor(mode, original) {
-  if (mode === "closed") return original; // exactly what is committed
+  if (mode === "closed") return original.replace("INTAKE_ENABLED: true", "INTAKE_ENABLED: false"); // the kill switch, thrown
   return original
     .replace("INTAKE_ENABLED: false", "INTAKE_ENABLED: true")
     .replace(/SUPABASE_URL: "[^"]*"/, `SUPABASE_URL: "${ORIGIN}"`)
