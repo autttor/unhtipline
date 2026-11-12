@@ -243,10 +243,11 @@ begin
     select jsonb_agg(jsonb_build_object(
       'id', r.public_id, 'created_at', r.created_at, 'status', r.status,
       'category', r.category, 'location', r.location, 'contact_mode', r.contact_mode,
+      'needs', coalesce(r.report -> 'needs', '[]'::jsonb),
       'awaiting_reply', r.status <> 'closed' and r.contact_mode <> 'anonymous' and coalesce(
         (select m.sender = 'student' from private.report_messages m
           where m.report_id = r.id order by m.created_at desc, m.id desc limit 1),
-        r.report -> 'wants' ? 'reply')
+        r.report -> 'needs' ?| array['advocate', 'office', 'support', 'conflict'])
     ) order by r.created_at desc)
     from private.reports r), '[]'::jsonb);
 end $$;
@@ -346,6 +347,11 @@ declare
 begin
   select jsonb_build_object(
     'suppressed_below', v_min,
+    'by_need', coalesce((
+      select jsonb_agg(jsonb_build_object('key', key, 'count', case when n >= v_min then n end) order by key)
+      from (select need as key, count(*) as n
+            from private.reports r, jsonb_array_elements_text(coalesce(r.report -> 'needs', '[]'::jsonb)) as need
+            group by 1) q), '[]'::jsonb),
     'by_category', coalesce((
       select jsonb_agg(jsonb_build_object('key', key, 'count', case when n >= v_min then n end) order by key)
       from (select coalesce(category, 'none') as key, count(*) as n from private.reports group by 1) c), '[]'::jsonb),

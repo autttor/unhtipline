@@ -2,48 +2,89 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>Report — UNewHaven Pride Report</title>
-  <meta name="description" content="Talk to Pride Guide, an automated assistant, to document an incident or campus concern.">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
+  <title>Get help or report | UNewHaven Pride Report</title>
+  <meta name="description" content="Tell Pride Guide, an automated assistant, what you need: advocacy, help with a University office, support, or help resolving a conflict.">
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body class="chat-page" data-page="report" data-root="">
 <main id="main">
-  <div class="chat-shell">
-    <div class="chat-top">
-      <div>
-        <h1 class="chat-title">Pride Guide</h1>
-        <p class="chat-sub">Automated assistant · not monitored live</p>
+  <div class="chat-layout">
+    <div class="chat-shell">
+      <div class="chat-top">
+        <div>
+          <h1 class="chat-title">Pride Guide</h1>
+          <p class="chat-sub">Automated assistant · not monitored live</p>
+        </div>
+        <div class="chat-tools">
+          <button class="btn btn-quiet btn-sm" type="button" id="back" aria-label="Go back one question">← <span>Back</span></button>
+          <button class="btn btn-quiet btn-sm" type="button" id="restart" aria-label="Start over">↺ <span>Start over</span></button>
+        </div>
       </div>
-      <div class="chat-tools">
-        <button class="btn btn-quiet btn-sm" type="button" id="back" aria-label="Go back one question">← <span>Back</span></button>
-        <button class="btn btn-quiet btn-sm" type="button" id="restart" aria-label="Start over">↺ <span>Start over</span></button>
+      <div class="progress" id="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar"></div></div>
+      <p class="stage-label" id="stage-label" aria-live="polite">Getting started</p>
+
+      <details class="urgent-mobile">
+        <summary>Need help right now?</summary>
+        <p>Pride Guide can’t send help. Call University Public Safety at <a class="phone" href="tel:+12039327070">(203) 932-7070</a>, or call <a class="phone" href="tel:911">911</a>. To talk to someone any time, call or text <a class="phone" href="tel:988">988</a>.</p>
+      </details>
+
+      <noscript>
+        <div class="callout callout-warn">
+          <p><strong>Pride Guide needs JavaScript to run.</strong> If you’d rather not enable it, the <a href="resources.html">Resources page</a> lists people you can contact directly. In an emergency call University Public Safety at (203) 932-7070, or call 911.</p>
+        </div>
+      </noscript>
+
+      <div class="log" id="log" role="log" aria-live="polite" aria-label="Conversation with Pride Guide"></div>
+      <div class="log" id="options"></div>
+
+      <div class="composer" id="composer">
+        <div class="composer-row">
+          <label class="visually-hidden" for="composer-input">Your answer</label>
+          <textarea id="composer-input" rows="1" autocomplete="off" spellcheck="true" enterkeyhint="send"></textarea>
+          <button class="btn btn-quiet" type="button" id="skip">Skip</button>
+          <button class="btn" type="button" id="send">Send</button>
+        </div>
+        <p class="composer-hint"><span id="composer-hint"></span><span id="composer-count" aria-live="polite"></span></p>
       </div>
     </div>
-    <div class="progress" id="progress" role="progressbar" aria-label="Progress through the report" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar"></div></div>
 
-    <noscript>
-      <div class="callout callout-warn">
-        <p><strong>Pride Guide needs JavaScript to run.</strong> If you’d rather not enable it, the <a href="resources.html">Resources page</a> lists people you can contact directly. In an emergency call 911 or University Public Safety at (203) 932-7070.</p>
-      </div>
-    </noscript>
-
-    <div class="log" id="log" role="log" aria-live="polite" aria-label="Conversation with Pride Guide"></div>
-    <div class="log" id="options"></div>
-
-    <div class="composer" id="composer">
-      <div class="composer-row">
-        <label class="visually-hidden" for="composer-input">Your answer</label>
-        <textarea id="composer-input" rows="1" autocomplete="off" spellcheck="true"></textarea>
-        <button class="btn btn-quiet" type="button" id="skip">Skip</button>
-        <button class="btn" type="button" id="send">Send</button>
-      </div>
-      <p class="composer-hint"><span id="composer-hint"></span><span id="composer-count" aria-live="polite"></span></p>
-    </div>
-    <p id="sr-status" class="visually-hidden" role="status"></p>
+    <aside class="chat-side" aria-label="Progress and urgent help">
+      <section class="side-card">
+        <h2>Where you are</h2>
+        <ol class="stage-list" id="stage-list">
+          <li>What you need</li>
+          <li>What happened</li>
+          <li>What you’d like to see</li>
+          <li>How to reach you</li>
+          <li>Review and submit</li>
+        </ol>
+      </section>
+      <section class="side-card side-urgent">
+        <h2>Need help right now?</h2>
+        <p>Pride Guide can’t send help.</p>
+        <ul>
+          <li>University Public Safety: <a class="phone" href="tel:+12039327070">(203) 932-7070</a></li>
+          <li>Emergency services: <a class="phone" href="tel:911">911</a></li>
+          <li>Someone to talk to, any time: call or text <a class="phone" href="tel:988">988</a></li>
+        </ul>
+      </section>
+      <section class="side-card">
+        <h2>Good to know</h2>
+        <ul>
+          <li>You can skip almost every question.</li>
+          <li>Nothing is sent until you press Submit at the end.</li>
+          <li>You don’t have to give your name.</li>
+          <li>This is not an official University report.</li>
+        </ul>
+        <p><a href="about.html" target="_blank" rel="noopener">About &amp; privacy (new tab)</a></p>
+      </section>
+    </aside>
   </div>
 </main>
 <script src="assets/js/config.js"></script>

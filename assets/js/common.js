@@ -5,8 +5,9 @@
   var cfg = window.PR_CONFIG || {};
   var root = document.body.getAttribute("data-root") || "";
   var page = document.body.getAttribute("data-page") || "";
+  var mode = PR.store ? PR.store.mode : "demo";
 
-  PR.isDemo = !cfg.API_BASE;
+  PR.isDemo = mode === "demo";
 
   /** Tiny DOM builder. Text is always set via textContent, never innerHTML. */
   PR.el = function (tag, attrs, children) {
@@ -43,13 +44,25 @@
     window.location.replace(cfg.QUICK_EXIT_URL || "https://www.wikipedia.org/");
   };
 
+  /** Emergency contacts, always in this order: University Public Safety first, then 911. */
+  PR.emergencyLine = function (lead) {
+    return el("p", null, [
+      lead || "In an emergency call ",
+      "University Public Safety at ",
+      el("a", { class: "phone", href: "tel:+12039327070", text: "(203) 932-7070" }),
+      ", or call ",
+      el("a", { class: "phone", href: "tel:911", text: "911" }),
+      "."
+    ]);
+  };
+
   var links = [
     ["home", "index.html", "Home"],
-    ["report", "report.html", "Report"],
+    ["report", "report.html", "Get help"],
     ["resources", "resources.html", "Resources"],
     ["track", "track.html", "My report"],
     ["about", "about.html", "About & privacy"]
-  ];
+  ].filter(function (l) { return l[0] !== "track" || mode !== "email"; });
 
   function buildHeader() {
     var nav = el("nav", { class: "site-nav", id: "site-nav", "aria-label": "Main" }, [
@@ -64,7 +77,7 @@
         toggle.setAttribute("aria-expanded", String(open));
       }
     });
-    var header = el("header", { class: "site-header" }, [
+    return el("header", { class: "site-header" }, [
       el("div", { class: "stripe", "aria-hidden": "true" }),
       el("div", { class: "wrap header-row" }, [
         el("a", { class: "brand", href: root + "index.html" }, [
@@ -79,12 +92,11 @@
         })
       ])
     ]);
-    return header;
   }
 
   function buildDemoBanner() {
     return el("div", { class: "banner banner-demo", role: "note" }, el("div", { class: "wrap" }, el("p", null, [
-      el("strong", { text: "Prototype — demo mode. " }),
+      el("strong", { text: "Prototype in demo mode. " }),
       "Please don’t enter real names or real incidents. Anything you type stays in this browser and is never sent to anyone. ",
       el("button", {
         class: "linklike", type: "button", text: "Clear demo data",
@@ -98,6 +110,8 @@
   }
 
   function buildFooter() {
+    var siteLinks = links.slice();
+    if (mode === "demo") siteLinks.push(["admin", "admin/index.html", "Reviewer dashboard (demo)"]);
     return el("footer", { class: "site-footer" }, el("div", { class: "wrap footer-grid" }, [
       el("div", null, [
         el("h2", { text: "UNewHaven Pride Report" }),
@@ -106,25 +120,28 @@
       ]),
       el("div", null, [
         el("h2", { text: "In an emergency" }),
-        el("p", null, ["Call ", el("a", { class: "phone", href: "tel:911", text: "911" }), " or University Public Safety at ",
-          el("a", { class: "phone", href: "tel:+12039327070", text: "(203) 932-7070" }), "."]),
+        PR.emergencyLine("Call "),
         el("p", { text: "This site is not monitored live and cannot send help." })
       ]),
       el("div", null, [
         el("h2", { text: "Site" }),
-        el("ul", null, links.concat([["admin", "admin/index.html", "Reviewer dashboard (demo)"]]).map(function (l) {
+        el("ul", null, siteLinks.map(function (l) {
           return el("li", null, el("a", { href: root + l[1], text: l[2] }));
         }))
       ])
     ]));
   }
 
+  // Pages mark mode-specific text with data-show="demo", "email", "backend" or a space-separated list.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-show]"), function (node) {
+    if (node.getAttribute("data-show").split(/\s+/).indexOf(mode) === -1) node.hidden = true;
+  });
+
   var main = document.querySelector("main");
-  var skip = el("a", { class: "skip-link", href: "#main", text: "Skip to content" });
-  document.body.insertBefore(skip, document.body.firstChild);
+  document.body.insertBefore(el("a", { class: "skip-link", href: "#main", text: "Skip to content" }), document.body.firstChild);
   var header = buildHeader();
   document.body.insertBefore(header, main);
-  if (PR.isDemo) document.body.insertBefore(buildDemoBanner(), main);
+  if (mode === "demo") document.body.insertBefore(buildDemoBanner(), main);
   document.body.appendChild(buildFooter());
 
   document.addEventListener("keydown", function (e) {
@@ -133,6 +150,7 @@
       if (nav && nav.classList.contains("open")) {
         nav.classList.remove("open");
         header.querySelector(".nav-toggle").setAttribute("aria-expanded", "false");
+        header.querySelector(".nav-toggle").focus();
       }
     }
   });

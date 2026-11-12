@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>About &amp; privacy — UNewHaven Pride Report</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
+  <title>About &amp; privacy | UNewHaven Pride Report</title>
   <meta name="description" content="Who runs Pride Report, what happens to a report, and the limits of confidentiality.">
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/css/styles.css">
@@ -20,67 +22,94 @@
 
   <div class="wrap narrow prose">
 
-    <div class="callout callout-warn">
+    <div class="callout callout-warn" data-show="demo">
       <p><strong>Project status: prototype.</strong> Pride Report is a proposed student initiative and is not yet accepting real reports. Items marked <em>to be decided</em> below must be settled, and reviewed with appropriate University staff, before launch.</p>
     </div>
 
     <h2 id="who">Who runs this</h2>
     <p>Pride Report is an independent, student-led initiative at the University of New Haven. It is not operated, endorsed or monitored by the University, and it is not an official reporting channel.</p>
-    <p>Student reviewers can read what you submit, offer support, explain your options, and help you reach an official office if you ask. They cannot investigate, discipline anyone, or decide whether something “really happened.”</p>
+
+    <h2 id="can">What we can do for you</h2>
+    <ul>
+      <li><strong>Advocate for you.</strong> A student reviewer can raise your situation with an office or staff member. You choose whether that happens with your name, without it, or only after talking with you.</li>
+      <li><strong>Help you with a University office.</strong> We help you work out who to talk to, what to ask for, and what to expect.</li>
+      <li><strong>Support you.</strong> A student to talk it through with, someone to come with you to a meeting, or help finding counseling and community.</li>
+      <li><strong>Help resolve a conflict.</strong> Nobody contacts the other person without checking with you first.</li>
+      <li><strong>Explain the official reporting options</strong>, or simply document what you tell us.</li>
+    </ul>
+    <p>Reviewers are trained students. They cannot investigate, discipline anyone, or decide whether something “really happened.”</p>
 
     <h2 id="what">What we collect</h2>
     <ul>
       <li><strong>Only what you submit.</strong> Your answers are assembled in your browser and nothing is sent until you press Submit on the review screen.</li>
       <li><strong>No account.</strong> No University login, Google sign-in, email or phone number is required.</li>
       <li><strong>No questions about your identity.</strong> We don’t ask for your sexual orientation or gender identity. Please share only what you want to.</li>
-      <li><strong>No advertising, tracking pixels or analytics.</strong> Every file on this site loads from this site; there are no third-party scripts or fonts.</li>
+      <li><strong>No advertising, tracking pixels or analytics.</strong> Every page, script and font on this site loads from this site.</li>
       <li><strong>Other people.</strong> You don’t need to name anyone. We don’t publish accusations or names.</li>
     </ul>
 
-    <h2 id="ways">Three ways to submit</h2>
+    <h2 id="delivery">Where your report goes</h2>
+    <p data-show="demo">Right now, nowhere. The site is in demo mode, so what you type stays in your own browser.</p>
+    <div data-show="email">
+      <p>When you press Submit, your report is delivered by email to the Pride Report reviewers’ inbox. A form delivery service carries it from this website to that inbox.</p>
+      <ul>
+        <li>The delivery service and the email provider both process the content of your report in order to deliver it.</li>
+        <li>Email can be kept, forwarded or backed up in ways a database can’t. Reviewers use a dedicated inbox with two-step sign-in, not personal accounts.</li>
+        <li>There is no tracking page. You get a reference number, and reviewers can only reply if you share a way to reach you.</li>
+      </ul>
+    </div>
+    <div data-show="backend">
+      <p>When you press Submit, your report is stored in a private database. Reviewers get an email alert that a report has arrived, and sign in to read it.</p>
+    </div>
+
+    <h2 id="ways">Ways to submit</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th scope="col">Choice</th><th scope="col">What you give</th><th scope="col">What you get</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Anonymous</th><td>No name or contact details</td><td>An access code to view your report and its status</td></tr>
-          <tr><th scope="row">Private follow-up</th><td>No name or contact details</td><td>An access code, plus two-way messages with a reviewer on this site</td></tr>
-          <tr><th scope="row">Identified</th><td>A name and contact method you choose</td><td>Everything above, and a reviewer may contact you directly</td></tr>
+          <tr data-show="demo backend"><th scope="row">Anonymous</th><td>No name or contact details</td><td>An access code to view your report and its status</td></tr>
+          <tr data-show="demo backend"><th scope="row">Private follow-up</th><td>No name or contact details</td><td>An access code, plus two-way messages with a reviewer on this site</td></tr>
+          <tr data-show="demo backend"><th scope="row">Identified</th><td>A name and contact method you choose</td><td>Everything above, and a reviewer may contact you directly</td></tr>
+          <tr data-show="email"><th scope="row">Anonymous</th><td>No name or contact details</td><td>A reference number. Reviewers read your report but can’t reply</td></tr>
+          <tr data-show="email"><th scope="row">Identified</th><td>A name and contact method you choose</td><td>A reference number, and a reviewer contacts you directly</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Your access code is random, shown once, and stored only in scrambled (hashed) form. We can’t look it up or reset it for you.</p>
+    <p data-show="demo backend">Your access code is random, shown once, and stored only in scrambled (hashed) form. We can’t look it up or reset it for you.</p>
+    <p>If you share contact details, you can ask reviewers to be discreet and not mention Pride Report when they reach out.</p>
 
     <h2 id="limits">Limits of confidentiality</h2>
     <ul>
       <li><strong>“Anonymous” is not a guarantee.</strong> What you write may identify you to someone who knows the situation. Leave out details you aren’t comfortable sharing.</li>
-      <li><strong>Hosting providers see technical data.</strong> This website is hosted on GitHub Pages, which records visitor IP addresses for security purposes. The service that stores reports also processes IP addresses in order to work and to limit abuse. Visiting this site is not untraceable.</li>
+      <li><strong>Hosting providers see technical data.</strong> This website is hosted on GitHub Pages, which records visitor IP addresses for security purposes. The services that deliver or store reports also process IP addresses in order to work and to limit abuse. Visiting this site is not untraceable.</li>
       <li><strong>Your device and network.</strong> Your browser history, a shared computer, or a network you don’t control may show that you visited. The Quick exit button leaves the site but can’t clear your history.</li>
-      <li><strong>Safety and legal obligations.</strong> <em>To be decided before launch:</em> the exact circumstances in which reviewers must tell someone else — for example an immediate threat to someone’s safety — and how this interacts with Title IX and campus safety requirements. Until that protocol is published here, the service will not accept real reports.</li>
+      <li><strong>Safety and legal obligations.</strong> <em>To be decided before launch:</em> the exact circumstances in which reviewers must tell someone else, for example an immediate threat to someone’s safety, and how this interacts with Title IX and campus safety requirements.</li>
     </ul>
 
     <h2 id="access">Who can read a report</h2>
     <ul>
       <li>Only a small number of designated, trained student reviewers and any approved advisers.</li>
-      <li>Reviewers sign in with two-factor authentication, and every time a report is opened or changed it is recorded in an audit log.</li>
-      <li>Reports are never shared with University officials automatically. If you want help contacting an official office, you ask for it.</li>
+      <li data-show="demo backend">Reviewers sign in with two-factor authentication, and every time a report is opened or changed it is recorded in an audit log.</li>
+      <li data-show="email">Reports arrive in one dedicated inbox that only those reviewers can open.</li>
+      <li>Reports are never shared with University officials automatically. Advocacy on your behalf happens only in the way you chose.</li>
       <li>We may publish de-identified statistics, such as counts by category. Groups smaller than five are hidden so individuals can’t be picked out.</li>
     </ul>
 
     <h2 id="retention">How long reports are kept</h2>
-    <p><em>To be decided before launch.</em> The working proposal is that reports and their messages are deleted automatically 12 months after submission, and sooner when a reviewer closes and deletes them. The audit log keeps only reference numbers, never report content.</p>
+    <p><em>To be decided before launch.</em> The working proposal is that reports and their messages are deleted 12 months after submission, and sooner when a reviewer closes and deletes them.</p>
 
     <h2 id="not">What Pride Report is not</h2>
     <ul>
-      <li><strong>Not an emergency service.</strong> Nobody watches submissions in real time. In danger, call <a class="phone" href="tel:911">911</a> or University Public Safety at <a class="phone" href="tel:+12039327070">(203) 932-7070</a>.</li>
+      <li><strong>Not an emergency service.</strong> Nobody watches submissions in real time. In danger, call University Public Safety at <a class="phone" href="tel:+12039327070">(203) 932-7070</a>, or call <a class="phone" href="tel:911">911</a>.</li>
       <li><strong>Not an official complaint.</strong> Submitting here does not notify the University. See <a href="resources.html">Resources</a> for the official routes.</li>
       <li><strong>Not counseling, legal advice, or an investigation.</strong></li>
       <li><strong>Not an AI.</strong> Pride Guide is a fixed script. It doesn’t generate advice or assess your report.</li>
     </ul>
 
     <h2 id="text">The text-message number</h2>
-    <p>If you found us through a text number, that number only sends back a link to this site. It is not a confidential reporting line — please don’t text details of an incident to it.</p>
+    <p>If you found us through a text number, that number only sends back a link to this site. It is not a confidential reporting line, so please don’t text details of an incident to it.</p>
 
-    <p><a class="btn" href="report.html">Start a report</a> <a class="btn btn-ghost" href="resources.html">See resources</a></p>
+    <p><a class="btn" href="report.html">Get help or report</a> <a class="btn btn-ghost" href="resources.html">See resources</a></p>
   </div>
 </main>
 <script src="assets/js/config.js"></script>

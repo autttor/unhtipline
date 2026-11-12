@@ -14,18 +14,18 @@
     emergency: {
       tag: "Emergency", tone: "urgent",
       name: "Immediate danger",
-      what: "If you or someone else is in danger right now, contact emergency services. Pride Report is not monitored live and cannot dispatch anyone.",
+      what: "If you or someone else is in danger right now, call University Public Safety or 911. Pride Report is not monitored live and cannot dispatch anyone.",
       contacts: [
-        { label: "Emergency services", text: "911", href: "tel:911" },
-        { label: "University Public Safety", text: "(203) 932-7070", href: "tel:+12039327070" }
+        { label: "University Public Safety", text: "(203) 932-7070", href: "tel:+12039327070" },
+        { label: "Emergency services", text: "911", href: "tel:911" }
       ]
     },
     reportIt: {
       tag: "Official University route", tone: "official",
       name: "Report It!",
-      what: "The University’s own incident-reporting system, including concerns about discriminatory actions. Filing here is what creates an official University report — Pride Report does not.",
+      what: "The University’s own incident-reporting system, including concerns about discriminatory actions. Filing here is what creates an official University report. Pride Report does not.",
       contacts: [
-        { label: "Web", text: "newhaven.edu — Report It!", href: "https://www.newhaven.edu/student-life/public-safety/report-it/index.php" }
+        { label: "Web", text: "newhaven.edu: Report It!", href: "https://www.newhaven.edu/student-life/public-safety/report-it/index.php" }
       ]
     },
     titleIX: {
@@ -33,7 +33,7 @@
       name: "Title IX reporting",
       what: "For sex-based discrimination, sexual harassment or sexual misconduct. The Title IX page explains the reporting options and which resources are confidential.",
       contacts: [
-        { label: "Web", text: "newhaven.edu — Title IX reporting", href: "https://www.newhaven.edu/about/title-ix/reporting.php" }
+        { label: "Web", text: "newhaven.edu: Title IX reporting", href: "https://www.newhaven.edu/about/title-ix/reporting.php" }
       ]
     },
     myatt: {
@@ -43,7 +43,7 @@
       contacts: [
         { label: "Phone", text: "(203) 932-7427", href: "tel:+12039327427" },
         { label: "Email", text: "CDI@newhaven.edu", href: "mailto:CDI@newhaven.edu" },
-        { label: "Web", text: "newhaven.edu — Myatt Center", href: "https://www.newhaven.edu/inclusion/myatt-center.php" }
+        { label: "Web", text: "newhaven.edu: Myatt Center", href: "https://www.newhaven.edu/inclusion/myatt-center.php" }
       ]
     },
     crisis988: {

@@ -1,7 +1,8 @@
 // HTTP handlers for the two public endpoints. Everything they need from the outside world arrives
 // through `Deps`, so tests can run them with a fake database (tests/backend.test.js).
 
-import { generateCode, hmacHex, LIMITS, normalizeCode, validateMessage, validateReport } from "./validate.ts";
+import { generateCode, HELP_NEEDS, hmacHex, LIMITS, normalizeCode, reportToText, validateMessage, validateReport } from "./validate.ts";
+import type { Report } from "./validate.ts";
 
 export type Deps = {
   /** Calls a Postgres function with the service role and returns its JSON result. */
@@ -10,6 +11,16 @@ export type Deps = {
   pepper: string;
   /** Exact origin of the website, e.g. "https://example.github.io". */
   allowedOrigin: string;
+  /** Optional: emails reviewers through Resend whenever a report or a student message arrives. */
+  email?: {
+    resendApiKey: string;
+    /** Reviewer inbox(es). */
+    to: string[];
+    /** Sender, e.g. "Pride Report <reports@yourdomain.org>". */
+    from: string;
+    /** true: the email contains the full report. false: only the reference number. */
+    includeDetails: boolean;
+  };
   /** Optional: receives "new report" pings that contain the reference number and nothing else. */
   notifyWebhookUrl?: string;
   fetch?: typeof fetch;
@@ -79,6 +90,40 @@ function rpcFailure(deps: Deps, data: unknown, error: unknown): Response | null 
   return null;
 }
 
+async function sendEmail(deps: Deps, subject: string, text: string, replyTo?: string | null): Promise<void> {
+  if (!deps.email || !deps.email.resendApiKey || !deps.email.to.length) return;
+  // A failed email must never fail the submission: the report is already stored.
+  try {
+    const res = await (deps.fetch || fetch)("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${deps.email.resendApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: deps.email.from, to: deps.email.to, subject, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    });
+    if (!res.ok) console.error("email failed", res.status, await res.text());
+  } catch (e) {
+    console.error("email failed", e);
+  }
+}
+
+const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function newReportEmail(deps: Deps, id: string, report: Report): { text: string; replyTo: string | null } {
+  const asksForHelp = report.needs.some((n) => HELP_NEEDS.includes(n));
+  const lines = [
+    `A new Pride Report was submitted. Reference: ${id}`,
+    asksForHelp ? "The student is asking for help, so a reply is needed." : "The student did not ask for direct help.",
+    "",
+  ];
+  if (deps.email && deps.email.includeDetails) {
+    lines.push(reportToText(report), "", "This email contains a confidential student report. Do not forward it or copy it elsewhere.");
+  } else {
+    lines.push("Sign in to the protected dashboard to read it. No details are included in this email.");
+  }
+  const contact = report.contact_method;
+  const replyTo = deps.email && deps.email.includeDetails && contact && EMAIL_ADDRESS.test(contact) ? contact : null;
+  return { text: lines.join("\n"), replyTo };
+}
+
 export async function handleSubmit(req: Request, deps: Deps): Promise<Response> {
   const body = await open(req, deps);
   if (body instanceof Response) return body;
@@ -100,6 +145,10 @@ export async function handleSubmit(req: Request, deps: Deps): Promise<Response> 
   const failure = rpcFailure(deps, data, error);
   if (failure) return failure;
   const id = (data as { id: string }).id;
+
+  // The subject carries no details: it shows up in notifications and on lock screens.
+  const mail = newReportEmail(deps, id, report.value);
+  await sendEmail(deps, `New Pride Report ${id}`, mail.text, mail.replyTo);
 
   if (deps.notifyWebhookUrl) {
     // The notification names the report and nothing else; reviewers sign in to read it.
@@ -137,7 +186,14 @@ export async function handleTrack(req: Request, deps: Deps): Promise<Response> {
     const message = validateMessage(body.body);
     if (!message.ok) return json(deps, 400, { error: "invalid_message", detail: message.error });
     const { data, error } = await deps.rpc("track_message", { p_code_hash: hash, p_body: message.value, p_bucket: key });
-    return rpcFailure(deps, data, error) || json(deps, 200, data);
+    const failure = rpcFailure(deps, data, error);
+    if (failure) return failure;
+    const id = (data as { id: string }).id;
+    await sendEmail(deps, `New message on Pride Report ${id}`,
+      deps.email && deps.email.includeDetails
+        ? `The student added a message to ${id}:\n\n${message.value}\n\nThis email contains confidential student information. Do not forward it.`
+        : `The student added a message to ${id}. No details are included in this email.`);
+    return json(deps, 200, data);
   }
   return json(deps, 400, { error: "unknown_action" });
 }

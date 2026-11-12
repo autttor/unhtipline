@@ -15,6 +15,16 @@ export function liveDeps(): Deps {
     },
     pepper: Deno.env.get("CODE_PEPPER") ?? "",
     allowedOrigin: Deno.env.get("ALLOWED_ORIGIN") ?? "",
+    email: Deno.env.get("RESEND_API_KEY")
+      ? {
+        resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+        to: (Deno.env.get("EMAIL_TO") ?? "").split(",").map((a) => a.trim()).filter(Boolean),
+        // Resend's shared test sender works before you verify a domain, but only delivers to your own address.
+        from: Deno.env.get("EMAIL_FROM") || "Pride Report <onboarding@resend.dev>",
+        // Full report in the email by default. Set EMAIL_INCLUDE_DETAILS=false to send only the reference number.
+        includeDetails: (Deno.env.get("EMAIL_INCLUDE_DETAILS") ?? "true").toLowerCase() !== "false",
+      }
+      : undefined,
     notifyWebhookUrl: Deno.env.get("NOTIFY_WEBHOOK_URL") || undefined,
   };
 }

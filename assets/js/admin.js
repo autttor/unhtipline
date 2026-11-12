@@ -11,7 +11,9 @@
 
   if (!PR.store.isDemo) {
     app.appendChild(el("div", { class: "callout" }, el("p", {
-      text: "This site is in live mode. The live reviewer dashboard (sign-in with two-factor authentication) has not been built yet, so there is nothing to show here. Reports are not accessible from this page."
+      text: PR.store.mode === "email"
+        ? "Reports are delivered to the reviewers’ inbox by email, so there is no dashboard to show here. Reports are not accessible from this page."
+        : "This site is in live mode. The live reviewer dashboard (sign-in with two-factor authentication) has not been built yet, so there is nothing to show here. Reports are not accessible from this page."
     })));
     return;
   }
@@ -24,9 +26,10 @@
     return {
       id: id, code_hash: null, created_at: daysAgo(days), status: status, fictional: true,
       report: Object.assign({
-        version: 1, path: "incident", category: null, what: null, when: null, where: null, who: null,
-        frequency: null, role: null, reported: null, anything_else: null, wants: [], contact_mode: mode,
-        contact_name: null, contact_method: null
+        version: 2, needs: ["document"], advocate_consent: null, office_which: null, support_kind: null,
+        conflict_with: null, conflict_contact: null, path: "incident", category: null, what: null, when: null,
+        where: null, who: null, frequency: null, role: null, reported: null, outcome: null, timing: null,
+        anything_else: null, contact_mode: mode, contact_name: null, contact_method: null, contact_discreet: null
       }, r),
       messages: messages || [], notes: notes || [], referrals: []
     };
@@ -35,38 +38,50 @@
 
   admin.seed([
     fict("PR-1042", 1, "received", "portal", {
+      needs: ["conflict", "support"], conflict_with: v("roommate"), conflict_contact: v("ask_first"), support_kind: v("talk"),
       category: v("harassment"), where: v("residence"), who: v("student"), frequency: v("repeated"), role: v("experienced"), reported: v("no"),
-      what: "[Fictional] People on my floor keep making comments when my partner visits. It has happened three times this month.", wants: ["reply", "official"]
+      what: "[Fictional] People on my floor keep making comments when my partner visits. It has happened three times this month.",
+      outcome: "[Fictional] I want it to stop without it becoming a big thing.", timing: v("weeks")
     }),
-    fict("PR-1041", 3, "under_review", "anonymous", {
-      category: v("academics"), where: v("academic"), who: v("faculty"), frequency: v("repeated"), role: v("experienced"), reported: v("unsure"),
-      what: "[Fictional] An instructor keeps using the wrong name for me in class after I asked them not to.", wants: ["document"]
+    fict("PR-1041", 3, "under_review", "identified", {
+      needs: ["advocate", "office"], advocate_consent: v("without_name"), office_which: v("academic"),
+      category: v("deadnaming"), where: v("academic"), who: v("faculty"), frequency: v("repeated"), role: v("experienced"), reported: v("unsure"),
+      what: "[Fictional] An instructor keeps using the wrong name for me in class after I asked them not to.",
+      outcome: "[Fictional] The roster fixed and the instructor using my name.", timing: v("days"),
+      contact_name: "Sample Student", contact_method: "sample@example.com", contact_discreet: v("discreet")
     }, [], [{ body: "Matches two earlier classroom reports this term. Watching for a pattern.", at: daysAgo(2), by: "Demo reviewer" }]),
     fict("PR-1040", 6, "response_available", "portal", {
-      path: "concern", category: v("facilities"), where: v("athletics"), frequency: v("ongoing"),
-      what: "[Fictional] There is no all-gender changing space near the rec center pool.", wants: ["resources", "reply"]
+      needs: ["office"], office_which: v("athletics"), path: "concern", category: v("facilities"), where: v("athletics"), frequency: v("ongoing"),
+      what: "[Fictional] There is no all-gender changing space near the rec center pool.", outcome: "[Fictional] A private changing option."
     }, [{ sender: "reviewer", body: "Thanks for flagging this. We have shared the Myatt Center contact below, and with your OK we can raise it as a general facilities concern without mentioning you.", created_at: daysAgo(4) }]),
-    fict("PR-1039", 9, "closed", "anonymous", { path: "concern", category: v("climate"), where: v("common"), frequency: v("once"), what: "[Fictional] A hostile sticker on a bulletin board near the dining hall.", wants: ["document"] }),
-    fict("PR-1038", 12, "closed", "identified", { category: v("housing"), where: v("residence"), who: v("student"), frequency: v("ongoing"), role: v("experienced"), reported: v("yes"), what: "[Fictional] Roommate conflict after I came out.", wants: ["official"], contact_name: "Sample Student", contact_method: "sample@example.com" }),
-    fict("PR-1037", 15, "closed", "anonymous", { category: v("harassment"), where: v("online"), who: v("unknown"), frequency: v("repeated"), role: v("witnessed"), wants: ["document"] }),
-    fict("PR-1036", 20, "closed", "portal", { category: v("harassment"), where: v("residence"), who: v("student"), frequency: v("once"), role: v("experienced"), wants: ["resources"] }),
-    fict("PR-1035", 24, "closed", "anonymous", { category: v("deadnaming"), where: v("office"), who: v("staff"), frequency: v("repeated"), role: v("experienced"), wants: ["document"] }),
-    fict("PR-1034", 31, "closed", "anonymous", { category: v("harassment"), where: v("common"), who: v("student"), frequency: v("once"), role: v("witnessed"), wants: ["document"] }),
-    fict("PR-1033", 38, "closed", "anonymous", { category: v("harassment"), where: v("residence"), who: v("student"), frequency: v("repeated"), role: v("heard"), wants: ["document"] }),
-    fict("PR-1032", 45, "closed", "portal", { category: v("deadnaming"), where: v("academic"), who: v("faculty"), frequency: v("repeated"), role: v("experienced"), wants: ["reply"] }),
-    fict("PR-1031", 52, "closed", "anonymous", { category: v("discrimination"), where: v("office"), who: v("staff"), frequency: v("once"), role: v("experienced"), wants: ["official"] })
+    fict("PR-1039", 9, "closed", "anonymous", { path: "concern", category: v("climate"), where: v("common"), frequency: v("once"), what: "[Fictional] A hostile sticker on a bulletin board near the dining hall." }),
+    fict("PR-1038", 12, "closed", "identified", { needs: ["conflict", "office"], conflict_with: v("roommate"), conflict_contact: v("ok"), office_which: v("housing"), category: v("housing"), where: v("residence"), who: v("student"), frequency: v("ongoing"), role: v("experienced"), reported: v("yes"), what: "[Fictional] Roommate conflict after I came out.", contact_name: "Sample Student", contact_method: "sample@example.com", contact_discreet: v("ok") }),
+    fict("PR-1037", 15, "closed", "anonymous", { category: v("harassment"), where: v("online"), who: v("unknown"), frequency: v("repeated"), role: v("witnessed") }),
+    fict("PR-1036", 20, "closed", "portal", { needs: ["support"], support_kind: v("resources"), category: v("harassment"), where: v("residence"), who: v("student"), frequency: v("once"), role: v("experienced") }),
+    fict("PR-1035", 24, "closed", "anonymous", { needs: ["official"], category: v("deadnaming"), where: v("office"), who: v("staff"), frequency: v("repeated"), role: v("experienced") }),
+    fict("PR-1034", 31, "closed", "anonymous", { category: v("harassment"), where: v("common"), who: v("student"), frequency: v("once"), role: v("witnessed") }),
+    fict("PR-1033", 38, "closed", "anonymous", { category: v("harassment"), where: v("residence"), who: v("student"), frequency: v("repeated"), role: v("heard") }),
+    fict("PR-1032", 45, "closed", "portal", { needs: ["advocate"], advocate_consent: v("ask_first"), category: v("deadnaming"), where: v("academic"), who: v("faculty"), frequency: v("repeated"), role: v("experienced") }),
+    fict("PR-1031", 52, "closed", "anonymous", { needs: ["support", "advocate"], support_kind: v("accompany"), advocate_consent: v("unsure"), category: v("discrimination"), where: v("office"), who: v("staff"), frequency: v("once"), role: v("experienced") })
   ]);
 
+  function asksForHelp(r) {
+    return (r.report.needs || []).some(function (n) { return flow.helpNeeds.indexOf(n) !== -1; });
+  }
   function title(r) {
     var cat = r.report.category ? flow.labelFor("category", r.report.category) : "Uncategorized";
     var where = r.report.where ? flow.labelFor("where", r.report.where) : null;
     return cat + (where ? " · " + where : "");
   }
+  function asked(r) {
+    var needs = (r.report.needs || []).filter(function (n) { return flow.helpNeeds.indexOf(n) !== -1; });
+    return needs.length ? "Asked: " + flow.labelFor("needs", needs) : null;
+  }
   function awaitingReply(r) {
     if (r.status === "closed" || r.report.contact_mode === "anonymous") return false;
     var last = r.messages[r.messages.length - 1];
     if (last) return last.sender === "student";
-    return r.report.wants.indexOf("reply") !== -1;
+    return asksForHelp(r);
   }
   function badge(status) { return el("span", { class: "badge badge-" + status, text: flow.statuses[status].label }); }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
@@ -108,6 +123,7 @@
           onclick: function () { open(r.id); }
         }, [
           el("strong", { text: title(r) }),
+          asked(r) ? el("span", { class: "asked", text: asked(r) }) : null,
           el("span", { class: "id", text: r.id + (r.fictional ? " · Fictional" : " · From this browser") + (awaitingReply(r) ? " · Awaiting reply" : "") }),
           badge(r.status)
         ]));
@@ -133,22 +149,8 @@
     var rep = r.report;
     var rows = [];
     function row(label, value) { rows.push(el("dt", { text: label })); rows.push(el("dd", { text: value })); }
-    row("Type", rep.path === "concern" ? "Campus concern" : "Incident");
     row("Submitted", PR.formatDate(r.created_at));
-    row("Category", flow.labelFor("category", rep.category));
-    row("In their words", rep.what || "Skipped");
-    if (rep.path !== "concern") row("When", flow.labelFor("when", rep.when));
-    row("Where", flow.labelFor("where", rep.where));
-    if (rep.path !== "concern") row("Who was involved", flow.labelFor("who", rep.who));
-    row("How often", flow.labelFor("frequency", rep.frequency));
-    if (rep.path !== "concern") {
-      row("Connection", flow.labelFor("role", rep.role));
-      row("Reported to University", flow.labelFor("reported", rep.reported));
-    }
-    row("Anything else", rep.anything_else || "Skipped");
-    row("Asked for", rep.wants.length ? rep.wants.map(function (w) { return flow.labelFor("wants", w); }).join(", ") : "Nothing selected");
-    row("Submitted as", flow.labelFor("contact_mode", rep.contact_mode));
-    if (rep.contact_mode === "identified") row("Contact", [rep.contact_name, rep.contact_method].filter(Boolean).join(" · "));
+    flow.describeReport(rep).forEach(function (pair) { row(pair[0], pair[1]); });
 
     var statusSelect = el("select", {
       id: "status-select",
@@ -219,7 +221,7 @@
 
     return el("div", { class: "panel" }, [
       el("div", { class: "panel-head" }, [
-        el("h2", { id: "case-h", tabindex: "-1", text: r.id + " — " + title(r) }),
+        el("h2", { id: "case-h", tabindex: "-1", text: r.id + ": " + title(r) }),
         r.fictional ? el("span", { class: "badge", text: "Fictional" }) : el("span", { class: "badge", text: "From this browser" })
       ]),
       el("div", { class: "panel-body" }, [
@@ -282,6 +284,11 @@
     return el("div", null, [
       el("p", { class: "muted", text: "De-identified counts only. Any group smaller than " + SUPPRESS_BELOW + " is shown as “<" + SUPPRESS_BELOW + "” so that a single student’s report can’t be singled out. Trends describe what was reported, not what was confirmed." }),
       el("div", { class: "cards" }, [
+        chart("What students asked for", (function () {
+          var counts = {};
+          db.reports.forEach(function (r) { (r.report.needs || []).forEach(function (n) { counts[n] = (counts[n] || 0) + 1; }); });
+          return counts;
+        })(), function (k) { return flow.labelFor("needs", k); }),
         chart("By category", tally(function (r) { return r.report.category ? r.report.category.value : "none"; }), function (k) {
           return k === "none" ? "Uncategorized" : k === "other" ? "Other (own words)" : flow.labelFor("category", k);
         }),
@@ -296,7 +303,7 @@
     return el("div", { class: "table-wrap" }, el("table", null, [
       el("thead", null, el("tr", null, ["When", "Who", "Action", "Report"].map(function (h) { return el("th", { scope: "col", text: h }); }))),
       el("tbody", null, db.audit.length ? db.audit.map(function (a) {
-        return el("tr", null, [PR.formatDate(a.at), a.actor, a.action.replace(/_/g, " "), a.report || "—"].map(function (c) { return el("td", { text: c }); }));
+        return el("tr", null, [PR.formatDate(a.at), a.actor, a.action.replace(/_/g, " "), a.report || "none"].map(function (c) { return el("td", { text: c }); }));
       }) : [el("tr", null, el("td", { colspan: "4", class: "muted", text: "Nothing recorded yet. Open a report to see an entry appear." }))])
     ]));
   }

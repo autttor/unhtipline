@@ -33,7 +33,10 @@ export function reply(engine, what) {
   if (!result.ok) throw new Error(`Answer rejected at ${engine.id}: ${result.error}`);
 }
 
+export const INCIDENT_STEPS = ["continue", "safe", ["advocate", "support"], "without_name", "talk", "incident", "housing",
+  "Fictional: something happened.", "week", "residence", "student", "repeated", "experienced", "no",
+  "Fictional: I want it to stop.", "days", "skip", "portal"];
+
 export function incidentToReview(engine) {
-  for (const step of ["continue", "safe", "incident", "housing", "Fictional: something happened.", "week", "residence",
-    "student", "repeated", "experienced", "no", "skip", ["document", "reply"], "portal"]) reply(engine, step);
+  for (const step of INCIDENT_STEPS) reply(engine, step);
 }

@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.web3forms.com https://formspree.io; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1b2d" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
-  <title>My report — UNewHaven Pride Report</title>
+  <title>My report | UNewHaven Pride Report</title>
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/css/styles.css">
 </head>
@@ -19,7 +21,11 @@
   </div>
 
   <div class="wrap narrow">
-    <form id="lookup" class="card" novalidate>
+    <div class="callout" data-show="email">
+      <p><strong>Online tracking isn’t switched on.</strong> Reports are currently delivered to reviewers by email. If you shared a way to reach you, a reviewer will use it. If you submitted anonymously, reviewers can’t reply, but you can <a href="report.html">submit again</a> and share contact details.</p>
+    </div>
+
+    <form id="lookup" class="card" novalidate data-show="demo backend">
       <div class="field">
         <label for="code">Access code</label>
         <input id="code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PR-XXXX-XXXX-XXXX" aria-describedby="code-help code-error">
@@ -33,7 +39,7 @@
 
     <noscript><div class="callout callout-warn"><p>This page needs JavaScript to look up a report.</p></div></noscript>
 
-    <p class="small muted">Lost your code? Anonymous reports can’t be recovered without it — that is what keeps them from being tied to you. You can always <a href="report.html">submit again</a>.</p>
+    <p class="small muted" data-show="demo backend">Lost your code? Anonymous reports can’t be recovered without it. That is what keeps them from being tied to you. You can always <a href="report.html">submit again</a>.</p>
   </div>
 </main>
 <script src="assets/js/config.js"></script>

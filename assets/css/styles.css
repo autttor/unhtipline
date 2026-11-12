@@ -1,4 +1,4 @@
-/* UNewHaven Pride Report — shared styles.
+/* UNewHaven Pride Report: shared styles.
    No web fonts, no third-party requests: everything on this site loads from the same origin. */
 
 :root {
@@ -54,7 +54,7 @@
 *::before,
 *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 84px; }
 
 body {
   margin: 0;
@@ -90,7 +90,10 @@ a:hover { text-decoration-thickness: 2px; }
   border-radius: 4px;
 }
 
-.wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 0 20px; }
+.wrap {
+  width: 100%; max-width: var(--wrap); margin: 0 auto;
+  padding: 0 max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left));
+}
 .narrow { max-width: 760px; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -219,6 +222,7 @@ a:hover { text-decoration-thickness: 2px; }
 .section-head { max-width: 42em; margin-bottom: 26px; }
 
 .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.cards-4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 22px; display: block; color: inherit;
@@ -270,11 +274,51 @@ th { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color
 .resource-contacts { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 4px; }
 
 /* ---------- Chat ---------- */
+.chat-layout { width: 100%; max-width: 760px; margin: 0 auto; }
 .chat-shell {
-  max-width: 760px; margin: 0 auto; width: 100%;
+  width: 100%; min-width: 0;
   display: flex; flex-direction: column;
   padding: 16px 16px 0;
 }
+.chat-side { display: none; }
+.stage-label { font-size: 0.82rem; font-weight: 650; color: var(--primary); margin: -6px 0 12px; }
+.urgent-mobile {
+  border: 1px solid var(--danger); background: var(--danger-soft); border-radius: var(--radius-sm);
+  padding: 0 14px; margin-bottom: 14px; font-size: 0.93rem;
+}
+.urgent-mobile summary { cursor: pointer; font-weight: 700; color: var(--danger); padding: 11px 0; min-height: 44px; }
+.urgent-mobile p { margin: 0 0 12px; }
+
+/* Desktop: the conversation gets a companion column with progress and urgent contacts. */
+@media (min-width: 1040px) {
+  .chat-layout {
+    max-width: 1120px; display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 40px; align-items: start; padding: 0 20px;
+  }
+  .chat-shell { padding: 24px 0 0; }
+  /* Capped to the viewport so it never slides under the header while the chat keeps scrolling to its end. */
+  .chat-side { display: grid; gap: 14px; position: sticky; top: 84px; max-height: calc(100dvh - 100px); overflow-y: auto; align-content: start; }
+  .urgent-mobile { display: none; }
+  .bubble { max-width: min(80%, 600px); }
+}
+.side-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; font-size: 0.92rem; }
+.side-card h2 { font-family: var(--sans); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.side-card ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.side-card p { margin: 10px 0 0; }
+.side-card p:first-of-type { margin-top: 0; }
+.side-urgent { background: var(--danger-soft); border-color: var(--danger); }
+.side-urgent h2 { color: var(--danger); }
+.side-urgent ul { list-style: none; padding: 0; margin-top: 8px; }
+.stage-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: stage; }
+.stage-list li { counter-increment: stage; display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: center; color: var(--muted); }
+.stage-list li::before {
+  content: counter(stage); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 0.8rem; font-weight: 700; background: var(--surface-2); color: var(--muted);
+}
+.stage-list li.done { color: var(--ink); }
+.stage-list li.done::before { content: "✓"; background: var(--primary-soft); color: var(--primary); }
+.stage-list li.now { color: var(--ink); font-weight: 700; }
+.stage-list li.now::before { background: var(--primary); color: var(--primary-ink); }
 .chat-top { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; }
 .chat-title { font-family: var(--serif); font-size: 1.3rem; font-weight: 700; margin: 0; }
 .chat-sub { font-size: 0.82rem; color: var(--muted); margin: 0; }
@@ -310,12 +354,15 @@ th { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color
   font: inherit; font-weight: 600; cursor: pointer; text-align: left;
 }
 .chip:hover { background: var(--primary-soft); }
-.chip[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); }
+.chip[aria-pressed="true"], .chip-on { background: var(--primary); color: var(--primary-ink); }
+.chips-multi .tick::before { content: "+"; display: inline-block; width: 1.1em; font-weight: 700; }
+.chips-multi .chip[aria-pressed="true"] .tick::before { content: "✓"; }
+.link-row { margin-top: -2px; }
 .chip-quiet { border-color: var(--line); color: var(--muted); font-weight: 500; }
 
 .composer {
   position: sticky; bottom: 0; background: var(--bg);
-  padding: 12px 0 16px; border-top: 1px solid var(--line); display: grid; gap: 10px;
+  padding: 12px 0 max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); display: grid; gap: 10px;
 }
 .composer-row { display: flex; gap: 8px; align-items: flex-end; }
 .composer textarea, .field input, .field textarea, .field select {
@@ -401,6 +448,8 @@ th { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color
 .inbox button:hover { background: var(--surface-2); }
 .inbox button[aria-current="true"] { background: var(--primary-soft); }
 .inbox .id { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); grid-column: 1; }
+.inbox .asked { font-size: 0.85rem; color: var(--primary); font-weight: 600; grid-column: 1; }
+.inbox .badge { grid-row: 1 / span 3; }
 .inbox .badge { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .tabs button {
@@ -433,12 +482,47 @@ body.chat-page .site-footer { display: none; }
   .chat-tools .btn span { display: none; }
 }
 
+button, a, summary, .chip, input, textarea, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* Phones: full-width actions that are easy to hit with a thumb. */
+@media (max-width: 560px) {
+  body { font-size: 1rem; }
+  .hero-actions .btn { flex: 1 1 100%; }
+  .chips-multi .chip, #options > .chips > .chip { flex: 1 1 100%; }
+  #options > .chips > .btn { flex: 1 1 100%; }
+  .bubble { max-width: 92%; }
+  .review-row { grid-template-columns: 1fr; }
+  .review-row button { grid-column: 1; grid-row: auto; justify-self: start; }
+  .composer-row .btn { padding-left: 14px; padding-right: 14px; }
+  .receipt .chips .btn { flex: 1 1 100%; }
+  .quick-exit { padding: 8px 10px; }
+  .card { padding: 18px; }
+}
+@media (max-width: 370px) {
+  .brand-name { font-size: 0.95rem; }
+  .header-row { gap: 8px; }
+}
+
+/* Wide screens: a little more room for reading and for the dashboard. */
+@media (min-width: 1040px) and (max-height: 760px) {
+  .chat-side .side-card:last-child { display: none; }
+}
+
+@media (min-width: 1400px) {
+  :root { --wrap: 1160px; }
+}
+
+@media (hover: none) {
+  a.card:hover { transform: none; }
+  .btn:hover { box-shadow: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
 @media print {
-  .site-header, .site-footer, .banner, .no-print, .composer, .chat-tools { display: none !important; }
+  .site-header, .site-footer, .banner, .no-print, .composer, .chat-tools, .chat-side, .urgent-mobile, .progress, .stage-label { display: none !important; }
   body { background: #fff; color: #000; }
   .card, .panel, .review { border-color: #999; box-shadow: none; }
 }

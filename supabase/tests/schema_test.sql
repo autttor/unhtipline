@@ -32,11 +32,11 @@ set role service_role;
 
 select pg_temp.check(
   public.submit_report(repeat('a', 64),
-    '{"version":1,"path":"incident","category":{"value":"housing"},"where":{"value":"residence"},"what":"fictional","wants":["reply"],"contact_mode":"portal"}',
+    '{"version":1,"path":"incident","category":{"value":"housing"},"where":{"value":"residence"},"what":"fictional","needs":["advocate","support"],"contact_mode":"portal"}',
     'bucket-1') ->> 'id' = 'PR-1043', 'first report gets PR-1043');
 select pg_temp.check(
   public.submit_report(repeat('b', 64),
-    '{"version":1,"path":"concern","category":{"value":"other","text":"own words"},"wants":[],"contact_mode":"anonymous"}',
+    '{"version":1,"path":"concern","category":{"value":"other","text":"own words"},"needs":["document"],"contact_mode":"anonymous"}',
     'bucket-1') ->> 'id' = 'PR-1044', 'second report gets PR-1044');
 
 select pg_temp.check(public.track_view(repeat('a', 64), 'bucket-2') ->> 'status' = 'received', 'student can view by code hash');
@@ -107,6 +107,9 @@ select pg_temp.expect_denied($$select public.reviewer_open_report('PR-9999')$$, 
 
 select pg_temp.check((select e -> 'count' = '6' from jsonb_array_elements(public.reviewer_stats() -> 'by_category') e where e ->> 'key' = 'housing'), 'stats show a group of 6');
 select pg_temp.check((select e -> 'count' = 'null' from jsonb_array_elements(public.reviewer_stats() -> 'by_category') e where e ->> 'key' = 'other'), 'stats suppress a group of 1');
+select pg_temp.check((select e -> 'count' = 'null' from jsonb_array_elements(public.reviewer_stats() -> 'by_need') e where e ->> 'key' = 'advocate'), 'need counts are suppressed when small');
+select pg_temp.check((select e -> 'needs' = '["advocate", "support"]' from jsonb_array_elements(public.reviewer_list_reports()) e where e ->> 'id' = 'PR-1043'), 'list shows what the student asked for');
+select pg_temp.check((select not (e ->> 'awaiting_reply')::boolean from jsonb_array_elements(public.reviewer_list_reports()) e where e ->> 'id' = 'PR-1044'), 'a document-only anonymous report is not awaiting a reply');
 reset role;
 reset request.jwt.claims;
 

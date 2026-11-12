@@ -1,16 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateCode, normalizeCode, hmacHex, validateReport, validateMessage, CODE_ALPHABET } from "../supabase/functions/_shared/validate.ts";
+import { generateCode, normalizeCode, hmacHex, validateReport, validateMessage, reportToText, CODE_ALPHABET } from "../supabase/functions/_shared/validate.ts";
 import { handleSubmit, handleTrack } from "../supabase/functions/_shared/handlers.ts";
 
 const ORIGIN = "https://example.github.io";
 const PEPPER = "p".repeat(48);
 const good = () => ({
-  version: 1, path: "incident", category: { value: "housing" }, what: "Fictional report text.",
-  when: { value: "week" }, where: { value: "residence" }, who: { value: "student" }, frequency: { value: "repeated" },
-  role: { value: "experienced" }, reported: { value: "no" }, anything_else: null, wants: ["reply"],
-  contact_mode: "portal", contact_name: null, contact_method: null
+  version: 2, needs: ["advocate", "support"], advocate_consent: { value: "without_name" }, office_which: null,
+  support_kind: { value: "talk" }, conflict_with: null, conflict_contact: null, path: "incident",
+  category: { value: "housing" }, what: "Fictional report text.", when: { value: "week" }, where: { value: "residence" },
+  who: { value: "student" }, frequency: { value: "repeated" }, role: { value: "experienced" }, reported: { value: "no" },
+  outcome: "Fictional outcome wanted.", timing: { value: "days" }, anything_else: null,
+  contact_mode: "portal", contact_name: null, contact_method: null, contact_discreet: null
 });
+const identified = () => ({ ...good(), contact_mode: "identified", contact_name: "Sam", contact_method: "sam@example.com", contact_discreet: { value: "discreet" } });
 
 function fakeDeps(result = { data: { id: "PR-1043" }, error: null }, extra = {}) {
   const calls = [];
@@ -36,13 +39,16 @@ test("validateReport accepts a good report and strips unknown fields", () => {
 
 test("validateReport rejects bad input", () => {
   const cases = {
-    "not an object": "text", "array": [], "wrong version": { ...good(), version: 2 },
+    "not an object": "text", "array": [], "old version": { ...good(), version: 1 },
     "unknown path": { ...good(), path: "support" }, "unknown category": { ...good(), category: { value: "guilty" } },
     "free text where not allowed": { ...good(), who: { value: "other", text: "A named person" } },
     "empty free text": { ...good(), category: { value: "other", text: "  " } },
     "long free text": { ...good(), where: { value: "other", text: "x".repeat(301) } },
     "long narrative": { ...good(), what: "x".repeat(4001) }, "non-string narrative": { ...good(), what: { $ne: null } },
-    "unknown want": { ...good(), wants: ["discipline"] }, "wants not a list": { ...good(), wants: "reply" },
+    "long outcome": { ...good(), outcome: "x".repeat(2001) },
+    "unknown need": { ...good(), needs: ["discipline"] }, "needs not a list": { ...good(), needs: "advocate" },
+    "no needs": { ...good(), needs: [] }, "missing needs": { ...good(), needs: undefined },
+    "unknown advocacy consent": { ...good(), advocate_consent: { value: "do_anything" } },
     "unknown contact mode": { ...good(), contact_mode: "public" },
     "identified without contact": { ...good(), contact_mode: "identified", contact_name: "Sam" },
     "long contact": { ...good(), contact_mode: "identified", contact_method: "x".repeat(201) }
@@ -50,16 +56,36 @@ test("validateReport rejects bad input", () => {
   for (const [label, input] of Object.entries(cases)) assert.equal(validateReport(input).ok, false, label);
 });
 
-test("validateReport drops contact details unless identified, and incident-only answers on concerns", () => {
-  const anon = validateReport({ ...good(), contact_mode: "anonymous", contact_name: "Sam", contact_method: "sam@example.com" });
+test("validateReport keeps only what belongs: contact details, follow-ups and incident answers", () => {
+  const anon = validateReport({ ...identified(), contact_mode: "anonymous" });
   assert.equal(anon.value.contact_name, null);
   assert.equal(anon.value.contact_method, null);
+  assert.equal(anon.value.contact_discreet, null);
+  assert.deepEqual(validateReport(identified()).value, identified());
+
   const concern = validateReport({ ...good(), path: "concern" });
   assert.equal(concern.value.who, null);
   assert.equal(concern.value.when, null);
-  const tidy = validateReport({ ...good(), what: "  line one\u0000\u0007\nline two  ", wants: ["reply", "document", "reply"] });
+
+  // Follow-up answers for help that wasn't requested are discarded.
+  const stray = validateReport({ ...good(), needs: ["document"], office_which: { value: "housing" }, conflict_contact: { value: "ok" } });
+  assert.equal(stray.value.advocate_consent, null);
+  assert.equal(stray.value.office_which, null);
+  assert.equal(stray.value.conflict_contact, null);
+
+  const tidy = validateReport({ ...good(), what: "  line one\u0000\u0007\nline two  ", needs: ["support", "advocate", "support"] });
   assert.equal(tidy.value.what, "line one\nline two");
-  assert.deepEqual(tidy.value.wants, ["document", "reply"]);
+  assert.deepEqual(tidy.value.needs, ["advocate", "support"]);
+});
+
+test("reportToText is readable and skips unanswered questions", () => {
+  const text = reportToText(validateReport(identified()).value);
+  assert.match(text, /^What we can do for you: advocate, support$/m);
+  assert.match(text, /^How to advocate: without name$/m);
+  assert.match(text, /^In their words:\nFictional report text\.$/m);
+  assert.match(text, /^Contact: sam@example\.com$/m);
+  assert.match(text, /^OK to mention Pride Report: discreet$/m);
+  assert.ok(!text.includes("Office or service") && !text.includes("Anything else") && !text.includes("null"));
 });
 
 test("validateMessage", () => {
@@ -202,4 +228,78 @@ test("track: wrong, malformed and rate-limited lookups", async () => {
   assert.equal(res.status, 429);
   res = await handleTrack(post({ action: "message", code: "PR-2222-2222-2222", body: "hi" }), fakeDeps({ data: { error: "messaging_disabled" }, error: null }).deps);
   assert.equal(res.status, 409);
+});
+
+const emailDeps = (extra = {}, includeDetails = true) => {
+  const sent = [];
+  const made = fakeDeps(undefined, {
+    email: { resendApiKey: "re_test_key", to: ["reviewers@example.org"], from: "Pride Report <reports@example.org>", includeDetails },
+    fetch: async (url, init) => { sent.push({ url, init, body: JSON.parse(init.body) }); return new Response("{}", { status: 200 }); },
+    ...extra
+  });
+  return { ...made, sent };
+};
+
+test("email: a new report is emailed to reviewers in full, with a detail-free subject", async () => {
+  const { deps, sent } = emailDeps();
+  const res = await handleSubmit(post({ report: identified(), meta }), deps);
+  assert.equal(res.status, 201);
+  const { code } = await res.json();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, "https://api.resend.com/emails");
+  assert.equal(sent[0].init.headers.Authorization, "Bearer re_test_key");
+  const mail = sent[0].body;
+  assert.deepEqual(mail.to, ["reviewers@example.org"]);
+  assert.equal(mail.from, "Pride Report <reports@example.org>");
+  assert.equal(mail.subject, "New Pride Report PR-1043");
+  assert.equal(mail.reply_to, "sam@example.com");
+  assert.match(mail.text, /asking for help, so a reply is needed/);
+  assert.match(mail.text, /Fictional report text\./);
+  assert.match(mail.text, /OK to mention Pride Report: discreet/);
+  assert.ok(!mail.text.includes(code), "the access code is never emailed");
+  assert.ok(!mail.text.includes("\u2014"));
+});
+
+test("email: details can be switched off, leaving only the reference number", async () => {
+  const { deps, sent } = emailDeps({}, false);
+  await handleSubmit(post({ report: identified(), meta }), deps);
+  const mail = sent[0].body;
+  assert.match(mail.text, /PR-1043/);
+  assert.equal(mail.reply_to, undefined);
+  for (const secret of ["Fictional report text", "sam@example.com", "Sam", "housing"]) assert.ok(!mail.text.includes(secret), secret);
+});
+
+test("email: no reply-to unless the student gave an email address; document-only reports say so", async () => {
+  const { deps, sent } = emailDeps();
+  await handleSubmit(post({ report: { ...identified(), contact_method: "203-555-0100" }, meta }), deps);
+  assert.equal(sent[0].body.reply_to, undefined);
+  await handleSubmit(post({ report: { ...good(), needs: ["document"] }, meta }), deps);
+  assert.match(sent[1].body.text, /did not ask for direct help/);
+});
+
+test("email: a failing or missing mail service never fails the submission", async () => {
+  const down = emailDeps({ fetch: async () => { throw new Error("mail down"); } });
+  assert.equal((await handleSubmit(post({ report: good(), meta }), down.deps)).status, 201);
+  const rejected = emailDeps({ fetch: async () => new Response("bad key", { status: 401 }) });
+  assert.equal((await handleSubmit(post({ report: good(), meta }), rejected.deps)).status, 201);
+  const none = fakeDeps(undefined, { fetch: async () => { throw new Error("should not be called"); } });
+  assert.equal((await handleSubmit(post({ report: good(), meta }), none.deps)).status, 201);
+});
+
+test("email: a student message alerts reviewers, with the text only when details are on", async () => {
+  const run = async (includeDetails) => {
+    const sent = [];
+    const { deps } = fakeDeps({ data: { id: "PR-1043", status: "under_review", messages: [] }, error: null }, {
+      email: { resendApiKey: "k", to: ["reviewers@example.org"], from: "x@example.org", includeDetails },
+      fetch: async (url, init) => { sent.push(JSON.parse(init.body)); return new Response("{}"); }
+    });
+    const res = await handleTrack(post({ action: "message", code: "PR-7K9M-2Q4X-H3TN", body: "private follow-up text" }), deps);
+    assert.equal(res.status, 200);
+    await handleTrack(post({ action: "view", code: "PR-7K9M-2Q4X-H3TN" }), deps);
+    assert.equal(sent.length, 1, "viewing a report sends nothing");
+    assert.equal(sent[0].subject, "New message on Pride Report PR-1043");
+    return sent[0].text;
+  };
+  assert.ok((await run(true)).includes("private follow-up text"));
+  assert.ok(!(await run(false)).includes("private follow-up text"));
 });

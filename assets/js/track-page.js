@@ -12,13 +12,6 @@
   var ORDER = ["received", "under_review", "response_available", "closed"];
   var currentCode = null;
 
-  var FIELDS = [
-    ["category", "Category", "category"], ["what", "What you wrote", null], ["when", "When", "when"],
-    ["where", "Where", "where"], ["who", "Who was involved", "who"], ["frequency", "How often", "frequency"],
-    ["role", "Your connection", "role"], ["reported", "Reported to the University", "reported"],
-    ["anything_else", "Anything else", null]
-  ];
-
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
 
   function timeline(status) {
@@ -79,7 +72,7 @@
         el("div", { class: "field" }, [
           el("label", { for: "reply", text: "Add a message or more information" }),
           box,
-          el("p", { class: "help", text: "Not monitored live. In an emergency call 911 or University Public Safety at (203) 932-7070." })
+          el("p", { class: "help", text: "Not monitored live. In an emergency call University Public Safety at (203) 932-7070, or call 911." })
         ]),
         err, send
       ]));
@@ -88,15 +81,13 @@
 
     // What was submitted
     var rows = [];
-    FIELDS.forEach(function (f) {
-      var v = report[f[0]];
-      if (v === null || v === undefined) return;
-      rows.push(el("dt", { text: f[1] }));
-      rows.push(el("dd", { text: f[2] ? flow.labelFor(f[2], v) : v }));
+    flow.describeReport(report).forEach(function (row) {
+      rows.push(el("dt", { text: row[0] }));
+      rows.push(el("dd", { text: row[1] }));
     });
     result.appendChild(el("section", { class: "section", "aria-labelledby": "sub-h" }, [
       el("h2", { id: "sub-h", text: "What you submitted" }),
-      el("div", { class: "card" }, rows.length ? el("dl", { class: "kv" }, rows) : el("p", { class: "muted", text: "You skipped the detail questions." })),
+      el("div", { class: "card" }, el("dl", { class: "kv" }, rows)),
       el("div", { class: "chips no-print" }, [
         el("button", { class: "btn btn-ghost btn-sm", type: "button", text: "Print or save as PDF", onclick: function () { window.print(); } })
       ]),
