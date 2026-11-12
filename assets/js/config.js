@@ -18,7 +18,7 @@
  */
 window.PR_CONFIG = {
   EMAIL_WEB3FORMS_KEY: "dbf759c9-bfb9-42bb-89b0-b403f4bed8f2",
-  EMAIL_FORMSPREE_ID: "",
+  EMAIL_FORMSPREE_ID: "mrpqbllg",
   API_BASE: "",
 
   SITE_NAME: "UNewHaven Pride Report",
