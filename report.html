@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Report — UNewHaven Pride Report</title>
+  <meta name="description" content="Talk to Pride Guide, an automated assistant, to document an incident or campus concern.">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="chat-page" data-page="report" data-root="">
+<main id="main">
+  <div class="chat-shell">
+    <div class="chat-top">
+      <div>
+        <h1 class="chat-title">Pride Guide</h1>
+        <p class="chat-sub">Automated assistant · not monitored live</p>
+      </div>
+      <div class="chat-tools">
+        <button class="btn btn-quiet btn-sm" type="button" id="back" aria-label="Go back one question">← <span>Back</span></button>
+        <button class="btn btn-quiet btn-sm" type="button" id="restart" aria-label="Start over">↺ <span>Start over</span></button>
+      </div>
+    </div>
+    <div class="progress" id="progress" role="progressbar" aria-label="Progress through the report" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar"></div></div>
+
+    <noscript>
+      <div class="callout callout-warn">
+        <p><strong>Pride Guide needs JavaScript to run.</strong> If you’d rather not enable it, the <a href="resources.html">Resources page</a> lists people you can contact directly. In an emergency call 911 or University Public Safety at (203) 932-7070.</p>
+      </div>
+    </noscript>
+
+    <div class="log" id="log" role="log" aria-live="polite" aria-label="Conversation with Pride Guide"></div>
+    <div class="log" id="options"></div>
+
+    <div class="composer" id="composer">
+      <div class="composer-row">
+        <label class="visually-hidden" for="composer-input">Your answer</label>
+        <textarea id="composer-input" rows="1" autocomplete="off" spellcheck="true"></textarea>
+        <button class="btn btn-quiet" type="button" id="skip">Skip</button>
+        <button class="btn" type="button" id="send">Send</button>
+      </div>
+      <p class="composer-hint"><span id="composer-hint"></span><span id="composer-count" aria-live="polite"></span></p>
+    </div>
+    <p id="sr-status" class="visually-hidden" role="status"></p>
+  </div>
+</main>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/resources-data.js"></script>
+<script src="assets/js/engine.js"></script>
+<script src="assets/js/flow.js"></script>
+<script src="assets/js/report-page.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>My report — UNewHaven Pride Report</title>
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="track" data-root="">
+<main id="main">
+  <div class="wrap narrow page-head">
+    <p class="eyebrow">My report</p>
+    <h1>Check on a report</h1>
+    <p class="lede">Enter the private access code you were given when you submitted. You don’t need to say who you are.</p>
+  </div>
+
+  <div class="wrap narrow">
+    <form id="lookup" class="card" novalidate>
+      <div class="field">
+        <label for="code">Access code</label>
+        <input id="code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PR-XXXX-XXXX-XXXX" aria-describedby="code-help code-error">
+        <p class="help" id="code-help">Dashes, spaces and lower case are fine. The code is never placed in the page address.</p>
+        <p class="error" id="code-error" role="alert"></p>
+      </div>
+      <button class="btn" type="submit" id="lookup-btn">Open report</button>
+    </form>
+
+    <div id="result" aria-live="polite"></div>
+
+    <noscript><div class="callout callout-warn"><p>This page needs JavaScript to look up a report.</p></div></noscript>
+
+    <p class="small muted">Lost your code? Anonymous reports can’t be recovered without it — that is what keeps them from being tied to you. You can always <a href="report.html">submit again</a>.</p>
+  </div>
+</main>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/resources-data.js"></script>
+<script src="assets/js/engine.js"></script>
+<script src="assets/js/flow.js"></script>
+<script src="assets/js/track-page.js"></script>
+</body>
+</html>
